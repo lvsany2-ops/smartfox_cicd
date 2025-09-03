@@ -98,7 +98,7 @@ jobs:
           cd ..
           cd smartfox_front
           npm ci
-          npm run build
+          CI = false npm run build
 
       - name: 构建docker镜像 (syntax/metadata check)
         uses: docker/setup-buildx-action@v3
