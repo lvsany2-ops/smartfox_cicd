@@ -3,7 +3,7 @@ package main
 import (
 	"experiment-service/config"
 	"experiment-service/routers"
-	"os"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,10 +14,22 @@ func main() {
 	routers.RegisterRoutes(r)
 
 	config.InitDB()
-	// Make OSS optional for CI to avoid external dependencies
-	if os.Getenv("ENABLE_OSS") == "true" {
-		config.InitOSS()
-	}
+	config.InitOSS()
+	r.GET("/health", func(c *gin.Context) {
+		// 检查数据库连接
+		db := config.DB
+		sqlDB, err := db.DB()
+		if err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "error": "database error"})
+			return
+		}
 
+		if err := sqlDB.Ping(); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "error": "database ping failed"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+	})
 	r.Run(":8082")
 }

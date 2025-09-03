@@ -115,21 +115,22 @@ func SaveAnswer(c *gin.Context) {
 			return
 		}
 	}
-
+	tx.Commit()
+	tx = db.Begin()
 	// 3. 处理每道题的提交
 	validQuestionIDs := make([]string, len(req.Answers))
 
 	for i, ans := range req.Answers {
 		validQuestionIDs[i] = ans.QuestionID
 	}
-
 	// 验证题目属于当前实验
 	//localhost:8082/api/experiments/validate-questions
-	validationURL := fmt.Sprintf("%s/api/experiments/validateQuestion", cfg.ExperimentServiceURL)
+	validationURL := fmt.Sprintf("%s/api/experiments/validQuestion", cfg.ExperimentServiceURL)
 	validationPayload := gin.H{
 		"experiment_id": experimentID,
 		"question_ids":  validQuestionIDs,
 	}
+
 	payloadBytes, _ := json.Marshal(validationPayload)
 	resp, err = http.Post(validationURL, "application/json", bytes.NewBuffer(payloadBytes))
 	if err != nil {
@@ -174,7 +175,7 @@ func SaveAnswer(c *gin.Context) {
 		}
 
 		//localhost:8082/api/experiments/questionDetail
-		questionDetailURL := fmt.Sprintf("%s/experiments/questionDetail", cfg.ExperimentServiceURL)
+		questionDetailURL := fmt.Sprintf("%s/api/experiments/questionDetail", cfg.ExperimentServiceURL)
 		detailPayload := gin.H{
 			"question_id": ans.QuestionID,
 		}
@@ -190,13 +191,16 @@ func SaveAnswer(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": fmt.Sprintf("questionDetail service error: %s", string(bodyBytes))})
 			return
 		}
-
-		var question Question
-		err = json.Unmarshal(bodyBytes, &question)
+		type response struct {
+			Question Question
+		}
+		var res response
+		err = json.Unmarshal(bodyBytes, &res)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to parse question details"})
 			return
 		}
+		question := res.Question
 		// 验证题目存在
 		if question.ID == "" {
 			c.JSON(http.StatusNotFound, gin.H{
@@ -363,14 +367,22 @@ func SubmitExperiment(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": fmt.Sprintf("experimentDetail service error: %s", string(bodyBytes))})
 		return
 	}
-	var experiment Experiment
+	type GetExperimentDetailResponse struct {
+		ExperimentID string    `json:"experiment_id"`
+		Permission   int       `json:"permission"`
+		Deadline     time.Time `json:"deadline"`
+		Title        string    `json:"title"`
+		IsExpired    bool      `json:"is_expired"`
+		TotalScore   int       `json:"total_score"`
+	}
+	var experiment GetExperimentDetailResponse
 	err = json.Unmarshal(bodyBytes, &experiment)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to parse experiment details"})
 		return
 	}
 	// 验证实验存在
-	if experiment.ID == "" {
+	if experiment.ExperimentID == "" {
 		c.JSON(http.StatusNotFound, gin.H{"status": "error", "message": "Experiment not found"})
 		return
 	}
@@ -383,7 +395,7 @@ func SubmitExperiment(c *gin.Context) {
 	//	totalPerfectScore += q.Score
 	//
 	//}
-	if experiment.Permission == 0 && time.Now().After(experiment.Deadline) {
+	if experiment.IsExpired {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Experiment deadline has passed"})
 		return
 	}
@@ -402,11 +414,10 @@ func SubmitExperiment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Invalid request body"})
 		return
 	}
-	tx := db.Begin()
 	now := time.Now()
 	// 处理实验提交记录（保持不变）
 	var submission models.ExperimentSubmission
-	result := tx.Where("experiment_id = ? AND student_id = ? AND status != 'submitted'", experimentID, studentID).Order("created_at DESC").
+	result := db.Where("experiment_id = ? AND student_id = ? AND status != 'submitted'", experimentID, studentID).Order("created_at DESC").
 		First(&submission)
 
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
@@ -419,24 +430,21 @@ func SubmitExperiment(c *gin.Context) {
 			UpdatedAt:    now,
 			SubmittedAt:  now,
 		}
-		if err := tx.Create(&submission).Error; err != nil {
-			tx.Rollback()
+		if err := db.Create(&submission).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to create submission"})
 			return
 		}
 	} else if result.Error != nil {
-		tx.Rollback()
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Database error"})
 		return
 	} else {
 		submission.UpdatedAt = now
-		if err := tx.Save(&submission).Error; err != nil {
-			tx.Rollback()
+		if err := db.Save(&submission).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to update submission"})
 			return
 		}
 	}
-
+	tx := db.Begin()
 	// 3. 处理每道题的提交
 	totalScore := 0
 	results := make([]gin.H, 0, len(req.Answers))
@@ -603,14 +611,10 @@ func GetSubmissions(c *gin.Context) {
 	// 分页参数
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	experimentID := c.Query("experiment_id")
 	offset := (page - 1) * limit
 
 	// 查询条件
 	query := db.Model(&models.ExperimentSubmission{}).Where("student_id = ?", studentID)
-	if experimentID != "" {
-		query = query.Where("experiment_id = ?", experimentID)
-	}
 
 	// 获取总数
 	var total int64
@@ -618,7 +622,7 @@ func GetSubmissions(c *gin.Context) {
 
 	// 获取提交记录
 	var submissions []models.ExperimentSubmission
-	err := query.Preload("Experiment").
+	err := query.
 		Offset(offset).
 		Limit(limit).
 		Order("submitted_at DESC").
@@ -638,7 +642,6 @@ func GetSubmissions(c *gin.Context) {
 	var questionSubmissions []models.QuestionSubmission
 	if len(submissionIDs) > 0 {
 		if err := db.Where("submission_id IN ?", submissionIDs).
-			Preload("Question").
 			Find(&questionSubmissions).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to get question submissions"})
 			return
@@ -654,6 +657,7 @@ func GetSubmissions(c *gin.Context) {
 	// 构建响应
 	submissionResponses := make([]gin.H, len(submissions))
 	for i, sub := range submissions {
+		experimentID := sub.ExperimentID
 		//获取Experiment
 		//localhost:8082/api/experiment/experimentDetail
 		experimentURL := fmt.Sprintf("%s/api/experiments/experimentDetail", cfg.ExperimentServiceURL)
@@ -672,7 +676,15 @@ func GetSubmissions(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": fmt.Sprintf("experimentDetail service error: %s", string(bodyBytes))})
 			return
 		}
-		var experiment Experiment
+		type GetExperimentDetailResponse struct {
+			ExperimentID string    `json:"experiment_id"`
+			Permission   int       `json:"permission"`
+			Deadline     time.Time `json:"deadline"`
+			Title        string    `json:"title"`
+			IsExpired    bool      `json:"is_expired"`
+			TotalScore   int       `json:"total_score"`
+		}
+		var experiment GetExperimentDetailResponse
 		err = json.Unmarshal(bodyBytes, &experiment)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to parse experiment details"})
@@ -701,13 +713,16 @@ func GetSubmissions(c *gin.Context) {
 					c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": fmt.Sprintf("questionDetail service error: %s", string(bodyBytes))})
 					return
 				}
-
-				var question Question
-				err = json.Unmarshal(bodyBytes, &question)
+				type GetQuestionDetailResponse struct {
+					Question Question
+				}
+				var que GetQuestionDetailResponse
+				err = json.Unmarshal(bodyBytes, &que)
 				if err != nil {
 					c.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Failed to parse question details"})
 					return
 				}
+				question := que.Question
 				explanation := ""
 				if now.After(experiment.Deadline) {
 					explanation = question.Explanation

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"experiment-service/config"
 	"experiment-service/models"
+	"experiment-service/utils"
 	"fmt"
 	"net/http"
 	"os"
@@ -254,7 +255,7 @@ func CreateExperiment(c *gin.Context) {
 		Description string          `json:"description"`
 		Permission  *int            `json:"permission" binding:"required,oneof=1 0"`
 		Deadline    time.Time       `json:"deadline" binding:"required"`
-		StudentIDs  []int           `json:"student_ids" binding:"required"`
+		StudentIDs  []string        `json:"student_ids" binding:"required"`
 		Questions   []QuestionInput `json:"questions" binding:"required,dive"`
 	}
 	// ExperimentResponseData 响应数据
@@ -365,7 +366,7 @@ func CreateExperiment(c *gin.Context) {
 	}
 	var userIDs models.JSONIntSlice
 	for _, studentID := range req.StudentIDs {
-		userIDs = append(userIDs, studentID)
+		userIDs = append(userIDs, int(utils.StrToUint(studentID)))
 	}
 	experiment.UserIDs = userIDs
 	// 保存到数据库

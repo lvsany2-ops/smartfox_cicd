@@ -19,8 +19,8 @@ func getJWTKey() []byte {
 
 // Claims token的claim
 type Claims struct {
-	UserID uint
-	Role   string
+	UserID uint   `json:"user_id"`
+	Role   string `json:"role"`
 	jwt.StandardClaims
 }
 

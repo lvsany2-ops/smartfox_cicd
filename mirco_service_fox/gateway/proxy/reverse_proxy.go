@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"fmt"
+	"gateway/common"
 	"gateway/config"
 	"log"
 	"net/http"
@@ -10,13 +11,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-)
-
-type contextKey string
-
-const (
-	userIDKey   contextKey = "userID"
-	userRoleKey contextKey = "userRole"
 )
 
 func NewReverseProxy(target string) (*httputil.ReverseProxy, error) {
@@ -37,12 +31,11 @@ func NewReverseProxy(target string) (*httputil.ReverseProxy, error) {
 		log.Printf("Proxying request to: %s", targetUrl.String())
 		req.Header.Set("X-Forwarded-Host", req.Header.Get("Host"))
 		req.Header.Set("X-Original-URI", req.URL.String())
-
 		// 传递用户信息（如果上游服务需要）
-		if userID, exists := req.Context().Value(userIDKey).(string); exists {
+		if userID, exists := req.Context().Value(common.UserIDKey).(string); exists {
 			req.Header.Set("X-User-ID", userID)
 		}
-		if userRole, exists := req.Context().Value(userRoleKey).(string); exists {
+		if userRole, exists := req.Context().Value(common.UserRoleKey).(string); exists {
 			req.Header.Set("X-User-Role", userRole)
 		}
 		req.Host = targetUrl.Host
@@ -84,7 +77,8 @@ func GetTargetService(path string, cfg *config.ServiceConfig) string {
 	// 提交服务路由
 	case strings.Contains(path, "/save") ||
 		strings.Contains(path, "/submit") ||
-		strings.HasPrefix(path, "/api/student/submissions"):
+		strings.HasPrefix(path, "/api/student/submissions") ||
+		strings.Contains(path, "/submissions"):
 		return cfg.SubmissionServiceURL
 
 	// 实验服务路由

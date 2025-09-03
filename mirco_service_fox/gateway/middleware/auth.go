@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"gateway/common"
 	"log"
 	"net/http"
 	"os"
@@ -10,13 +11,6 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
-)
-
-type contextKey string
-
-const (
-	userIDKey   contextKey = "userID"
-	userRoleKey contextKey = "userRole"
 )
 
 // JWT密钥（应与用户服务中的密钥一致）
@@ -38,7 +32,7 @@ type Claims struct {
 // AuthMiddleware 认证中间件
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.URL.Path == "/health" || strings.HasPrefix(c.Request.URL.Path, "/api/auth") {
+		if c.Request.URL.Path == "/health" || strings.HasPrefix(c.Request.URL.Path, "/api/auth/login") || strings.HasPrefix(c.Request.URL.Path, "/api/auth/register") {
 			c.Next()
 			return
 		}
@@ -90,8 +84,9 @@ func AuthMiddleware() gin.HandlerFunc {
 		// 将用户信息添加到请求头中
 		c.Set("userID", string(strconv.FormatUint(uint64(claims.UserID), 10)))
 		c.Set("userRole", claims.Role)
-		ctx := context.WithValue(c.Request.Context(), userIDKey, strconv.FormatUint(uint64(claims.UserID), 10))
-		ctx = context.WithValue(ctx, userRoleKey, claims.Role)
+
+		ctx := context.WithValue(c.Request.Context(), common.UserIDKey, string(strconv.FormatUint(uint64(claims.UserID), 10)))
+		ctx = context.WithValue(ctx, common.UserRoleKey, claims.Role)
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	}

@@ -8,12 +8,13 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: rootpassword
       MYSQL_DATABASE: submission_db
-      MYSQL_submission: submission_user
+      MYSQL_USER: submission_user
       MYSQL_PASSWORD: userpassword
     ports:
       - "3310:3306"
     volumes:
       - submission_db_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # 添加初始化脚本
     networks:
       - submission_network
       
@@ -34,12 +35,13 @@ services:
       JUDGE_SERVICE_URL: http://judge-service:8085
     depends_on:
       - submission_db
-      - judge-service
+      - judge_service
     networks:
       - submission_network
       - app-network
     volumes:
       - ./settings.yaml:/root/settings.yaml
+
   
 
   judge_service:
