@@ -21,6 +21,10 @@ func InitRouter() *gin.Engine {
 		MaxAge:           12 * 60 * 60,                                        // 预检请求缓存时间（秒）
 	}))
 	CollectRoutes(router)
+	// 轻量活性探针：不依赖数据库，仅用于判断进程存活
+	router.GET("/live", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "alive"})
+	})
 	router.GET("/health", func(c *gin.Context) {
 		// 检查数据库连接
 		db := common.GetDB()
