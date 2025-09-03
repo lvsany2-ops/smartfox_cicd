@@ -18,13 +18,32 @@ jobs:
         shell: bash
         working-directory: mirco_service_fox
     steps:
-      - name: Checkout
+      - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: 设置Go环境
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: '1.24'
+
+      - name: 缓存 Go 依赖
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: 下载 Go 模块依赖
+        env:
+          GOPROXY: https://proxy.golang.org,direct
+        run: |
+          for d in gateway experiment-service user-service notification-service submission-service; do
+            echo "==> go mod download in $d"
+            (cd "$d" && go mod download)
+          done
 
       - name: Go Build (gateway)
         run: |
@@ -51,7 +70,7 @@ jobs:
           cd submission-service
           go build ./...
 
-      - name: Set up Python
+      - name: 设置Python环境
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -66,10 +85,25 @@ jobs:
           print('Flask version:', flask.__version__)
           PY
 
-      - name: Build Docker images (syntax/metadata check)
+      # Frontend build: Node.js setup + npm ci + build
+      - name: 设置Node环境
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: smartfox_front/package-lock.json
+
+      - name: 安装前端依赖并构建
+        run: |
+          cd ..
+          cd smartfox_front
+          npm ci
+          npm run build
+
+      - name: 构建docker镜像 (syntax/metadata check)
         uses: docker/setup-buildx-action@v3
 
-      - name: Build images
+      - name: 构建docker镜像
         run: |
           docker build -t gateway:ci ./gateway
           docker build -t experiment-service:ci ./experiment-service
@@ -77,6 +111,9 @@ jobs:
           docker build -t notification-service:ci ./notification-service
           docker build -t submission-service:ci ./submission-service
           docker build -t judge-service:ci ./judge-service
+          # frontend image (path out of mirco_service_fox)
+          cd ..
+          docker build -t smartfox-front:ci ./smartfox_front
 
       - name: Set up KinD
         uses: helm/kind-action@v1.10.0
