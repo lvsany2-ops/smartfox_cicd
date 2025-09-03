@@ -28,6 +28,11 @@ func InitRouter() *gin.Engine {
 	router.GET("/health", func(c *gin.Context) {
 		// 检查数据库连接
 		db := common.GetDB()
+		if db == nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "error": "database not initialized"})
+			return
+		}
+		
 		sqlDB, err := db.DB()
 		if err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "unhealthy", "error": "database error"})

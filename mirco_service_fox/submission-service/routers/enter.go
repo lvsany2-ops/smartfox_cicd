@@ -2,6 +2,7 @@ package routers
 
 import (
 	"submission/global"
+	"net/http"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -19,5 +20,11 @@ func InitRouter() *gin.Engine {
 		MaxAge:           12 * 60 * 60,                                        // 预检请求缓存时间（秒）
 	}))
 	submission(router)
+	
+	// 添加健康检查端点
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
+	})
+	
 	return router
 }
