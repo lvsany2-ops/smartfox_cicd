@@ -1,0 +1,948 @@
+{
+  "info": {
+    "name": "SmartFox Student Tests - Full Coverage",
+    "description": "完整的学生端集成测试用例 - 包含正向和反向测试",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth - Student Login",
+      "item": [
+        {
+          "name": "Positive - Valid Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试学生登录功能 - 正向测试",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has token\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.data.token).to.be.a('string');",
+                  "    pm.environment.set(\"studentToken\", jsonData.data.token);",
+                  "});",
+                  "",
+                  "// 保存学生ID供后续测试使用",
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.code === 200) {",
+                  "    pm.environment.set(\"studentId\", jsonData.user_id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"student_test\",\n    \"password\": \"student123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negative - Invalid Password",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试学生登录功能 - 反向测试：错误密码",
+                  "pm.test(\"Status code is 422\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has error message\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include(\"密码错误\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"student_test\",\n    \"password\": \"wrongpassword\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negative - Non-existent User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试学生登录功能 - 反向测试：用户不存在",
+                  "pm.test(\"Status code is 422\", function () {",
+                  "    pm.response.to.have.status(422);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has error message\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include(\"用户不存在\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\": \"99999999999\",\n    \"password\": \"anypassword\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Student - Get Experiments List",
+      "item": [
+        {
+          "name": "Positive - Valid Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试获取实验列表功能 - 正向测试",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has experiments data\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "    ",
+                  "    // 查找第一个状态为active的实验，用于正常测试",
+                  "    var activeExperiment = jsonData.data.find(function(exp) {",
+                  "        return exp.status === 'active';",
+                  "    });",
+                  "    ",
+                  "    // 查找第一个状态为expired的实验，用于过期实验测试",
+                  "    var expiredExperiment = jsonData.data.find(function(exp) {",
+                  "        return exp.status === 'expired';",
+                  "    });",
+                  "    ",
+                  "    if (activeExperiment) {",
+                  "        pm.environment.set(\"experimentId\", activeExperiment.experiment_id);",
+                  "        console.log(\"Selected active experiment: \" + activeExperiment.experiment_id);",
+                  "    } else if (jsonData.data.length > 0) {",
+                  "        // 如果没有active实验，使用第一个实验但记录警告",
+                  "        pm.environment.set(\"experimentId\", jsonData.data[0].experiment_id);",
+                  "        console.warn(\"No active experiments found, using first available: \" + jsonData.data[0].experiment_id);",
+                  "    } else {",
+                  "        console.error(\"No experiments available for testing\");",
+                  "    }",
+                  "    ",
+                  "    if (expiredExperiment) {",
+                  "        pm.environment.set(\"expiredExperimentId\", expiredExperiment.experiment_id);",
+                  "        console.log(\"Selected expired experiment: \" + expiredExperiment.experiment_id);",
+                  "    } else {",
+                  "        console.warn(\"No expired experiments found for testing expired scenarios\");",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student/experiments?page=1&limit=10&status=all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "experiments"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "all"
+                } 
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negative - Invalid Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试获取实验列表功能 - 反向测试：无效Token",
+                  "pm.test(\"Status code is 401\", function () {",
+                  "    pm.response.to.have.status(401);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{invalidToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student/experiments?page=1&limit=10&status=all",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "experiments"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "all"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Student - Get Experiment Details",
+      "item": [
+        {
+          "name": "Positive - Valid Experiment ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试获取实验详情功能 - 正向测试",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has experiment details\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "    pm.expect(jsonData.data).to.be.an('object');",
+                  "    pm.expect(jsonData.data).to.have.property('questions');",
+                  "    pm.expect(jsonData.data).to.have.property('attachments');",
+                  "    ",
+                  "    // 保存第一道题目的ID供后续测试使用",
+                  "    if (jsonData.data.questions && jsonData.data.questions.length > 0) {",
+                  "        pm.environment.set(\"questionId\", jsonData.data.questions[0].question_id);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student/experiments/{{experimentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "experiments", "{{experimentId}}"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negative - Invalid Experiment ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试获取实验详情功能 - 反向测试：无效实验ID",
+                  "pm.test(\"Status code is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has error message\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include(\"Experiment not found\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student/experiments/{{invalidExperimentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "experiments", "{{invalidExperimentId}}"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Student - Save Answer",
+      "item": [
+        {
+          "name": "Positive - Valid Answer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试保存答案功能 - 正向测试",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Answer saved successfully\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "    pm.expect(jsonData.data).to.have.property('submission_id');",
+                  "    ",
+                  "    // 保存提交ID供后续测试使用",
+                  "    pm.environment.set(\"submissionId\", jsonData.data.submission_id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"answers\": [\n        {\n            \"question_id\": \"{{questionId}}\",\n            \"type\": \"choice\",\n            \"answer\": \"A\"\n        }\n    ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/student/experiments/{{experimentId}}/save",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "experiments", "{{experimentId}}", "save"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negative - Invalid Question ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试保存答案功能 - 反向测试：无效题目ID",
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has error message\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"answers\": [\n        {\n            \"question_id\": \"{{invalidQuestionId}}\",\n            \"type\": \"choice\",\n            \"answer\": \"A\"\n        }\n    ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/student/experiments/{{experimentId}}/save",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "experiments", "{{experimentId}}", "save"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Student - Submit Experiment",
+      "item": [
+        {
+          "name": "Positive - Valid Submission",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试提交实验功能 - 正向测试",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Experiment submitted successfully\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "    pm.expect(jsonData.data).to.have.property('total_score');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"answers\": [\n        {\n            \"question_id\": \"{{questionId}}\",\n            \"type\": \"choice\",\n            \"answer\": \"A\"\n        }\n    ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/student/experiments/{{experimentId}}/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "experiments", "{{experimentId}}", "submit"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negative - Expired Experiment",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试提交实验功能 - 反向测试：过期实验",
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has error message\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.message).to.include(\"deadline\");",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"answers\": [\n        {\n            \"question_id\": \"{{questionId}}\",\n            \"type\": \"choice\",\n            \"answer\": \"A\"\n        }\n    ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/student/experiments/{{expiredExperimentId}}/submit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "experiments", "{{expiredExperimentId}}", "submit"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Student - Get Submissions",
+      "item": [
+        {
+          "name": "Positive - Valid Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试获取提交记录功能 - 正向测试",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has submissions data\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student/submissions?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "submissions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negative - Invalid Pagination",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试获取提交记录功能 - 反向测试：无效分页参数",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has empty data array\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "    pm.expect(jsonData.data).to.be.an('array').that.is.empty;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student/submissions?page=-1&limit=abc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "submissions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "-1"
+                },
+                {
+                  "key": "limit",
+                  "value": "abc"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Student - Get Notifications",
+      "item": [
+        {
+          "name": "Positive - Valid Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试获取通知功能 - 正向测试",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has notifications data\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "    pm.expect(jsonData.data).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student/experiments/notifications/{{studentId}}?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "experiments", "notifications", "{{studentId}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negative - Invalid Student ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试获取通知功能 - 反向测试：无效学生ID",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has empty data array\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "    pm.expect(jsonData.data).to.be.an('array').that.is.empty;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/student/experiments/notifications/{{invalidStudentId}}?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "student", "experiments", "notifications", "{{invalidStudentId}}"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Student - List Experiment Files",
+      "item": [
+        {
+          "name": "Positive - Valid Request",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试列出实验文件功能 - 正向测试",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has files list\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.files).to.be.an('array');",
+                  "    ",
+                  "    // 保存第一个文件名供后续测试使用",
+                  "    if (jsonData.files.length > 0) {",
+                  "        pm.environment.set(\"filename\", jsonData.files[0]);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/experiments/{{experimentId}}/files",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "experiments", "{{experimentId}}", "files"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negative - Invalid Experiment ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试列出实验文件功能 - 反向测试：无效实验ID",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response file is null\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('experimentId', '{{invalidExperimentId}}');",
+                  "    pm.expect(jsonData).to.have.property('files').that.is.null;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/experiments/{{invalidExperimentId}}/files",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "experiments", "{{invalidExperimentId}}", "files"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Student - Download File",
+      "item": [
+        {
+          "name": "Positive - Valid File",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试下载文件功能 - 正向测试",
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"File downloaded successfully\", function () {",
+                  "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/octet-stream');",
+                  "    pm.expect(pm.response.headers.get('Content-Disposition')).to.include('attachment');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/experiments/{{experimentId}}/files/{{filename}}/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "experiments", "{{experimentId}}", "files", "{{filename}}", "download"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Negative - Non-existent File",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// 测试下载文件功能 - 反向测试：文件不存在",
+                  "pm.test(\"Status code is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "{{studentToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/experiments/{{experimentId}}/files/{{invalidFilename}}/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "experiments", "{{experimentId}}", "files", "{{invalidFilename}}", "download"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// 预请求脚本，确保基础URL已设置",
+          "if (!pm.environment.get(\"baseUrl\")) {",
+          "    pm.environment.set(\"baseUrl\", \"http://localhost:3002\");",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// 集合级测试脚本",
+          "console.log(\"Running SmartFox Student Tests\");"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3002"
+    }
+  ]
+}

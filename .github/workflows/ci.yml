@@ -132,6 +132,19 @@ jobs:
         run: |
           chmod +x .github/scripts/kind-deploy-and-test.sh
           .github/scripts/kind-deploy-and-test.sh
+          
+      - name: 等待服务完全启动
+        run: |
+          echo "等待所有服务完全启动..."
+          sleep 30
+          
+          # 检查所有服务的健康状态
+          kubectl get pods -o wide
+          kubectl get svc
+          
+          # 等待所有 Pod 就绪
+          kubectl wait --for=condition=ready pod --all --timeout=300s || true
+          
       - name: E2E smoke
         run: |
           # 使用本地安装的 jq，如果没有则安装
@@ -144,7 +157,22 @@ jobs:
           fi
           chmod +x .github/scripts/smoke-e2e.sh
           .github/scripts/smoke-e2e.sh
-      - name: Postman tests
+          
+      - name: Postman 集成测试
         run: |
+          # 确保脚本可执行
           chmod +x .github/scripts/run-newman.sh
+          
+          # 确保测试文件存在
+          if [ ! -d "../test_json" ]; then
+            echo "❌ 测试目录 ../test_json 不存在"
+            exit 1
+          fi
+          
+          # 列出可用的测试文件
+          echo "📂 可用的测试文件:"
+          ls -la ../test_json/
+          
+          # 运行 Postman 测试
+          echo "🚀 开始运行 Postman 集成测试..."
           .github/scripts/run-newman.sh

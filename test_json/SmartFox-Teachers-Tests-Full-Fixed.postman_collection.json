@@ -1,0 +1,312 @@
+{
+  "info": {
+    "name": "SmartFox Teacher Tests - Full Coverage",
+    "description": "完整的教师端集成测试用例 - 覆盖 teacherController.go 所有接口，包含正向和负向测试",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth - Teacher Login",
+      "item": [
+        {
+          "name": "Positive - Valid Login",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type","value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"teacher_test\",\n  \"password\": \"teacher123\"\n}"
+            },
+            "url": {"raw": "{{baseUrl}}/api/auth/login","host": ["{{baseUrl}}"],"path": ["api","auth","login"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "let json = pm.response.json();",
+                  "if(json.data && json.data.token){ pm.environment.set('teacherToken', json.data.token); }",
+                  "if(json.user_id){ pm.environment.set('teacherId', json.user_id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative - Wrong Password",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type","value": "application/json"}],
+            "body": {"mode": "raw","raw": "{\n  \"name\": \"teacher_test\",\n  \"password\": \"wrong\"\n}"},
+            "url": {"raw": "{{baseUrl}}/api/auth/login","host": ["{{baseUrl}}"],"path": ["api","auth","login"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 422\", () => pm.response.to.have.status(422));",
+                  "pm.expect(pm.response.json().message).to.include(\"密码错误\");"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative - User Not Found",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type","value": "application/json"}],
+            "body": {"mode": "raw","raw": "{\n  \"name\":\"nouser\",\n  \"password\":\"123\"\n}"},
+            "url": {"raw": "{{baseUrl}}/api/auth/login","host": ["{{baseUrl}}"],"path": ["api","auth","login"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 422\", () => pm.response.to.have.status(422));",
+                  "pm.expect(pm.response.json().message).to.include(\"用户不存在\");"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Teacher - Student Management",
+      "item": [
+        {
+          "name": "Get Student List - Positive",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization","value": "{{teacherToken}}"}],
+            "url": {"raw": "{{baseUrl}}/api/teacher/students","host": ["{{baseUrl}}"],"path": ["api","teacher","students"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {"type": "text/javascript","exec": ["pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));"]}
+            } 
+          ]
+        },
+        {
+          "name": "Get Student List - Negative No Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{baseUrl}}/api/teacher/students","host": ["{{baseUrl}}"],"path": ["api","teacher","students"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {"type": "text/javascript","exec": ["pm.test(\"Status code is 401\", () => pm.response.to.have.status(401));"]}
+            }
+          ]
+        },
+        {
+          "name": "Create Student Group - Positive",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization","value": "{{teacherToken}}"},
+              {"key": "Content-Type","value": "application/json"}
+            ],
+            "body": {"mode": "raw","raw": "{\n  \"group_name\":\"Group A\",\n  \"student_ids\":[\"1\"]\n}"},
+            "url": {"raw": "{{baseUrl}}/api/teacher/groups","host": ["{{baseUrl}}"],"path": ["api","teacher","groups"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "let jsonData = pm.response.json();",
+                  "if(jsonData.data && jsonData.data.group_id){ pm.environment.set('groupId', jsonData.data.group_id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Student Group - Negative Missing Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization","value": "{{teacherToken}}"},
+              {"key": "Content-Type","value": "application/json"}
+            ],
+            "body": {"mode": "raw","raw": "{}"},
+            "url": {"raw": "{{baseUrl}}/api/teacher/groups","host": ["{{baseUrl}}"],"path": ["api","teacher","groups"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {"type": "text/javascript","exec": ["pm.test(\"Status code is 422\", () => pm.response.to.have.status(422));"]}
+            }
+          ]
+        },
+        {
+          "name": "Update Group - Positive",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Authorization","value": "{{teacherToken}}"},
+              {"key": "Content-Type","value": "application/json"}
+            ],
+            "body": {"mode": "raw","raw": "{\n  \"group_name\":\"Updated Group\"\n}"},
+            "url": {"raw": "{{baseUrl}}/api/teacher/groups/{{groupId}}","host": ["{{baseUrl}}"],"path": ["api","teacher","groups","{{groupId}}"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {"type": "text/javascript","exec": ["pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));"]}
+            }
+          ]
+        },
+        {
+          "name": "Update Group - Negative Invalid ID",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {"key": "Authorization","value": "{{teacherToken}}"},
+              {"key": "Content-Type","value": "application/json"}
+            ],
+            "body": {"mode": "raw","raw": "{\n  \"group_name\":\"Updated Group\"\n}"},
+            "url": {"raw": "{{baseUrl}}/api/teacher/groups/999999","host": ["{{baseUrl}}"],"path": ["api","teacher","groups","999999"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {"type": "text/javascript","exec": ["pm.test(\"Status code is 404\", () => pm.response.to.have.status(404));"]}
+            }
+          ]
+        },
+        {
+          "name": "Delete Group - Positive",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization","value": "{{teacherToken}}"}],
+            "url": {"raw": "{{baseUrl}}/api/teacher/groups/{{groupId}}","host": ["{{baseUrl}}"],"path": ["api","teacher","groups","{{groupId}}"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {"type": "text/javascript","exec": ["pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));"]}
+            }
+          ]
+        },
+        {
+          "name": "Delete Group - Negative Invalid ID",
+          "request": {
+            "method": "DELETE",
+            "header": [{"key": "Authorization","value": "{{teacherToken}}"}],
+            "url": {"raw": "{{baseUrl}}/api/teacher/groups/999999","host": ["{{baseUrl}}"],"path": ["api","teacher","groups","999999"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {"type": "text/javascript","exec": ["pm.test(\"Status code is 404\", () => pm.response.to.have.status(404));"]}
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Teacher - Experiment Management",
+      "item": [
+        {
+          "name": "Create Experiment - Positive",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization","value": "{{teacherToken}}"},
+              {"key": "Content-Type","value": "application/json"}
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n\"title\":\"Exp1\",\"description\":\"d\",\"permission\":1,\n\"deadline\":\"2099-12-31T23:59:00\",\n\"student_ids\":[\"1\"],\n\"questions\":[{\"type\":\"choice\",\"content\":\"Q1\",\"options\":[\"A\",\"B\"],\"correct_answer\":\"A\",\"score\":10}]}\n"
+            },
+            "url": {"raw": "{{baseUrl}}/api/teacher/experiments","host": ["{{baseUrl}}"],"path": ["api","teacher","experiments"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "let jsonData = pm.response.json();",
+                  "if(jsonData.data && jsonData.data.experiment_id){ pm.environment.set('experimentId', jsonData.data.experiment_id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Experiment - Negative Missing Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Authorization","value": "{{teacherToken}}"},
+              {"key": "Content-Type","value": "application/json"}
+            ],
+            "body": {"mode": "raw","raw": "{\"title\":\"\"}"},
+            "url": {"raw": "{{baseUrl}}/api/teacher/experiments","host": ["{{baseUrl}}"],"path": ["api","teacher","experiments"]}
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {"type": "text/javascript","exec": ["pm.test(\"Status code is 422\", () => pm.response.to.have.status(422));"]}
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {"key": "baseUrl","value": "http://localhost:3002"},
+    {"key": "teacherToken","value": ""},
+    {"key": "teacherId","value": ""},
+    {"key": "groupId","value": ""},
+    {"key": "experimentId","value": ""}
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// 预请求脚本，确保基础URL已设置",
+          "if (!pm.environment.get('baseUrl')) { pm.environment.set('baseUrl','http://localhost:3002'); }"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": ["console.log('Running SmartFox Teacher Tests');"]
+      }
+    }
+  ]
+}

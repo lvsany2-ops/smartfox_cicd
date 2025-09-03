@@ -1,0 +1,447 @@
+{
+	"info": {
+		"_postman_id": "6e8df192-1292-4c9f-968c-63cadbceaebc",
+		"name": "base",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "45094665"
+	},
+	"item": [
+		{
+			"name": "register",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// 生成一个随机数\r",
+							"const randomNumber = Math.floor(Math.random() * 8999999+1000000);\r",
+							"// 生成一个唯一的用户名\r",
+							"pm.environment.set(\"dynamicUsername\", `testuser_${randomNumber}`);\r",
+							"// 生成密码\r",
+							"pm.environment.set(\"dynamicPassword\", `${randomNumber}`);\r",
+							"//生成手机号\r",
+							"const number = Math.floor(Math.random() * 89999999999+1000000000);\r",
+							"pm.environment.set(\"dynamicNumber\", `${number}`);\r",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// 检查 HTTP 状态码是否为 200 OK\r",
+							"pm.test(\"Status code is 200 OK\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"// 解析响应体为 JSON\r",
+							"const responseJson = pm.response.json();\r",
+							"\r",
+							"// 检查响应体中的 'code' 字段是否为 200\r",
+							"pm.test(\"Response code is 200\", function () {\r",
+							"    pm.expect(responseJson.code).to.eql(200);\r",
+							"});\r",
+							"\r",
+							"// 检查响应体中的 'message' 字段是否为 \"注册成功\"\r",
+							"pm.test(\"Response message is '注册成功'\", function () {\r",
+							"    pm.expect(responseJson.message).to.eql(\"注册成功\");\r",
+							"});\r",
+							"\r",
+							"// 检查响应体是否包含 'user_id' 字段，并确保它是一个数字\r",
+							"pm.test(\"Response contains user_id and it's a number\", function () {\r",
+							"    pm.expect(responseJson).to.have.property('user_id');\r",
+							"    pm.expect(responseJson.user_id).to.be.a('number');\r",
+							"});\r",
+							"\r",
+							"// 检查响应体是否包含 'username' 字段\r",
+							"pm.test(\"Response contains username\", function () {\r",
+							"    pm.expect(responseJson).to.have.property('username');\r",
+							"    // 如果你在 Pre-request Script 中动态生成了用户名，可以在这里验证\r",
+							"    // pm.expect(responseJson.username).to.eql(pm.environment.get(\"dynamicUsername\"));\r",
+							"});\r",
+							"\r",
+							"\r",
+							"// 将注册成功的 user_id 保存到环境变量\r",
+							"pm.environment.set(\"registeredUserId\", responseJson.user_id);\r",
+							"// 将注册成功的 username 保存起来\r",
+							"pm.environment.set(\"registeredUsername\", responseJson.username);\r",
+							"\r",
+							"console.log(\"Registered User ID:\", pm.environment.get(\"registeredUserId\"));\r",
+							"console.log(\"Registered Username:\", pm.environment.get(\"registeredUsername\"));"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"name\" : \"{{dynamicUsername}}\",\r\n    \"telephone\" : \"{{dynamicNumber}}\",\r\n    \"password\" : \"{{dynamicPassword}}\",\r\n    \"role\" : \"student\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/auth/register",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "registerAgain",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// 解析响应体为 JSON\r",
+							"const responseJson = pm.response.json();\r",
+							"\r",
+							"// 检查响应体中的 'code' 字段是否为 422\r",
+							"pm.test(\"Response code is 422\", function () {\r",
+							"    pm.expect(responseJson.code).to.eql(422);\r",
+							"});\r",
+							"\r",
+							"pm.test(\"Response message is '手机号已注册'\", function () {\r",
+							"    pm.expect(responseJson.message).to.eql(\"手机号已注册\");\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"name\" : \"{{registeredUsername}}\",\r\n    \"telephone\" : \"{{dynamicNumber}}\",\r\n    \"password\" : \"{{dynamicPassword}}\",\r\n    \"role\" : \"student\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/auth/register",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"register"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "login",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// 检查状态码\r",
+							"pm.test(\"Status code is 200 OK\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"const responseJson = pm.response.json();\r",
+							"// 检查响应体是否包含 token，并将其保存到环境变量\r",
+							"pm.test(\"Response body contains token and set as environment variable\", function () {\r",
+							"    pm.expect(responseJson).to.have.property('data');\r",
+							"    const data = responseJson.data;\r",
+							"    pm.expect(data).to.have.property('token');\r",
+							"    pm.environment.set(\"authToken\", data.token); // 将 token 保存到环境变量\r",
+							"});\r",
+							"// 检查响应体中的 'message' 字段是否为 \"登录成功\"\r",
+							"pm.test(\"Response message is '登录成功'\", function () {\r",
+							"    pm.expect(responseJson.message).to.eql(\"登录成功\");\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"name\" : \"{{registeredUsername}}\",\r\n    \"password\" : \"{{dynamicPassword}}\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/auth/login",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "loginWithError",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// 检查状态码\r",
+							"pm.test(\"Status code is 422\", function () {\r",
+							"    pm.response.to.have.status(422);\r",
+							"});\r",
+							"const responseJson = pm.response.json();\r",
+							"// 检查响应体中的 'message' 字段是否为 \"密码错误\"\r",
+							"pm.test(\"Response message is '密码错误'\", function () {\r",
+							"    pm.expect(responseJson.message).to.eql(\"密码错误\");\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"name\" : \"{{registeredUsername}}\",\r\n    \"password\" : \"111{{dynamicPassword}}\"\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/auth/login",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "profile",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// 检查状态码\r",
+							"pm.test(\"Status code is 200 OK\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"// 检查响应体是否包含预期的用户信息\r",
+							"pm.test(\"Response body contains correct user information\", function () {\r",
+							"    const responseJson = pm.response.json();\r",
+							"    pm.expect(responseJson).to.have.property('username', pm.environment.get(\"dynamicUsername\"));\r",
+							"    pm.expect(responseJson).to.have.property('telephone', pm.environment.get(\"dynamicNumber\"));\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/auth/profile",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"profile"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "update",
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"exec": [
+							"// 生成一个随机数\r",
+							"const randomNumber = Math.floor(Math.random() * 100000);\r",
+							"// 生成一个唯一的用户名和邮箱\r",
+							"pm.environment.set(\"newName\", `${randomNumber}`)\r",
+							"pm.environment.set(\"dynamicEmail\", `test_${randomNumber}@example.com`);"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// 检查状态码\r",
+							"pm.test(\"Status code is 200 OK\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});\r",
+							"\r",
+							"// 检查响应体是否返回更新后的用户信息\r",
+							"pm.test(\"Response body contains updated user information\", function () {\r",
+							"    const responseJson = pm.response.json();\r",
+							"    pm.expect(responseJson).to.have.property('username', pm.environment.get(\"newName\"));\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"username\":\"{{newName}}\",\r\n  \"email\":\"{{dynamicEmail}}\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/auth/update",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"update"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "updateWrongPassword",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"// 检查状态码\r",
+							"pm.test(\"Status code is 422\", function () {\r",
+							"    pm.response.to.have.status(422);\r",
+							"});\r",
+							"\r",
+							"// 检查响应体是否返回更新后的用户信息\r",
+							"pm.test(\"Response body contains updated user information\", function () {\r",
+							"    const responseJson = pm.response.json();\r",
+							"    pm.expect(responseJson).to.have.property('message', '旧密码错误');\r",
+							"});"
+						],
+						"type": "text/javascript",
+						"packages": {}
+					}
+				}
+			],
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "{{authToken}}",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"old_password\":\"aaaaaa\",\r\n  \"new_password\":\"aaaaaaa\"\r\n}\r\n",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{baseUrl}}/api/auth/update",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"api",
+						"auth",
+						"update"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
