@@ -3,6 +3,25 @@ set -euo pipefail
 
 BASE_URL=${BASE_URL:-http://127.0.0.1:8080}
 
+# Resolve repo root and test directory robustly
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# scripts/ -> .github/ -> mirco_service_fox/ -> repo-root
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+ALT_REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || echo "")"
+if [[ -n "$ALT_REPO_ROOT" && -d "$ALT_REPO_ROOT/test_json" ]]; then
+    REPO_ROOT="$ALT_REPO_ROOT"
+fi
+TEST_DIR="$REPO_ROOT/test_json"
+if [[ ! -d "$TEST_DIR" ]]; then
+    # Fallback: some layouts might have test_json under mirco_service_fox/..
+    if [[ -d "$SCRIPT_DIR/../../test_json" ]]; then
+        TEST_DIR="$(cd "$SCRIPT_DIR/../../test_json" && pwd)"
+    else
+        echo "❌ 找不到测试目录 test_json (尝试: $REPO_ROOT/test_json)"
+        exit 1
+    fi
+fi
+
 cleanup_pf() {
   [[ -n "${PF_PID:-}" ]] && kill "$PF_PID" || true
 }
@@ -38,8 +57,10 @@ fi
 echo "Newman 版本: $(newman --version)"
 
 # 运行测试集合
-TEST_DIR="../../test_json"  # 相对于脚本位置的测试目录
 ENV_FILE="$TEST_DIR/smartfox-test.postman_environment.json"
+
+echo "📂 可用的测试文件:"
+ls -l "$TEST_DIR" || true
 
 # 检查环境文件是否存在
 if [ ! -f "$ENV_FILE" ]; then
