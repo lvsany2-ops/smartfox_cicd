@@ -1,0 +1,70 @@
+# k8s/submission-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: submission-service
+  namespace: default
+  labels:
+    app: submission-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: submission-service
+  template:
+    metadata:
+      labels:
+        app: submission-service
+    spec:
+      containers:
+      - name: submission-service
+        image: submission-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8084
+        env:
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: submission-db-secret
+              key: host
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: submission-db-secret
+              key: database
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: submission-db-secret
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: submission-db-secret
+              key: password
+        - name: EXPERIMENT_SERVICE_URL
+          value: "http://experiment-service.default.svc.cluster.local:8082"
+        - name: JUDGE_SERVICE_URL
+          value: "http://judge-service.default.svc.cluster.local:8085"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8084
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8084
+          initialDelaySeconds: 5
+          periodSeconds: 5

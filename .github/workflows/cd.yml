@@ -1,0 +1,116 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/smartfox
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: mirco_service_fox
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract tag
+        id: meta
+        run: |
+          TAG=${GITHUB_REF_NAME#v}
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build and push images
+        run: |
+          tag=${{ steps.meta.outputs.tag }}
+          for svc in gateway experiment-service user-service notification-service submission-service judge-service; do
+            img="$REGISTRY/${{ github.repository_owner }}/smartfox-$svc:$tag"
+            echo "Building $img"
+            docker build -t "$img" ./$svc
+            docker push "$img"
+          done
+
+  deploy:
+    needs: build-and-push
+    if: ${{ github.ref_type == 'tag' && secrets.KUBE_CONFIG != '' }}
+    runs-on: ubuntu-latest
+    env:
+      KUBECONFIG: ${{ runner.temp }}/kubeconfig
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set kubeconfig
+        run: |
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$KUBECONFIG"
+
+      - name: Render images to manifests
+        id: render
+        run: |
+          tag=${GITHUB_REF_NAME#v}
+          root=$PWD/mirco_service_fox
+          # Patch images using yq if available, else sed
+          set -e
+          if ! command -v yq >/dev/null 2>&1; then
+            sudo snap install yq || true
+          fi
+          patch_img(){
+            file="$1"; image="$2";
+            if command -v yq >/dev/null 2>&1; then
+              yq -i ".spec.template.spec.containers[0].image=\"$image\"" "$file" || true
+              yq -i ".spec.template.spec.containers[] |= (select(.name==\"judge-service\").image = \"$image\")" "$file" || true
+            else
+              sed -i "s#image: .*#image: $image#g" "$file" || true
+            fi
+          }
+          declare -A images
+          images[gateway]="ghcr.io/${{ github.repository_owner }}/smartfox-gateway:${tag}"
+          images[experiment-service]="ghcr.io/${{ github.repository_owner }}/smartfox-experiment-service:${tag}"
+          images[user-service]="ghcr.io/${{ github.repository_owner }}/smartfox-user-service:${tag}"
+          images[notification-service]="ghcr.io/${{ github.repository_owner }}/smartfox-notification-service:${tag}"
+          images[submission-service]="ghcr.io/${{ github.repository_owner }}/smartfox-submission-service:${tag}"
+          images[judge-service]="ghcr.io/${{ github.repository_owner }}/smartfox-judge-service:${tag}"
+          for svc in "${!images[@]}"; do
+            for f in $(ls "$root/$svc/k8s"/*deployment.yaml 2>/dev/null || true); do
+              echo "Patching $f -> ${images[$svc]}"
+              patch_img "$f" "${images[$svc]}"
+              # Ensure imagePullPolicy isn't 'Never' on remote clusters
+              sed -i 's/imagePullPolicy: Never/imagePullPolicy: IfNotPresent/g' "$f" || true
+            done
+          done
+
+      - name: Apply manifests
+        run: |
+          set -e
+          kubectl apply -f mirco_service_fox/user-service/k8s/
+          kubectl apply -f mirco_service_fox/experiment-service/k8s/
+          kubectl apply -f mirco_service_fox/submission-service/k8s/
+          kubectl apply -f mirco_service_fox/notification-service/k8s/
+          kubectl apply -f mirco_service_fox/judge-service/k8s/
+          kubectl apply -f mirco_service_fox/gateway/k8s/
+
+      - name: Wait for deployments ready
+        run: |
+          for d in user-service experiment-service submission-service notification-service judge-service gateway; do
+            kubectl rollout status deploy/$d -n default --timeout=180s
+          done
+
+      - name: Basic smoke tests via gateway
+        run: |
+          # Assumes a LoadBalancer/NodePort reachable by runner; otherwise skip
+          echo "Skipping external HTTP checks; cluster internal only."

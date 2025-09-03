@@ -1,0 +1,48 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  notification_db:
+    image: mysql:8.0
+    container_name: notification_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: notification_db
+      MYSQL_USER: notification_user
+      MYSQL_PASSWORD: userpassword
+    ports:
+      - "3307:3306"
+    volumes:
+      - notification_db_data:/var/lib/mysql
+    networks:
+      - notification_network
+      
+
+  notification_service:
+    build: .
+    image: notification-service 
+    container_name: notification-service
+    ports:
+      - "8083:8083"
+    environment:
+      DB_HOST: notification_db
+      DB_PORT: 3306
+      DB_NAME: notification_db
+      DB_USER: notification_user
+      DB_PASSWORD: userpassword
+      USER_SERVICE_URL: http://user-service:8081
+    depends_on:
+      - notification_db
+    networks:
+      - notification_network
+      - app-network
+
+volumes:
+  notification_db_data:
+
+networks:
+  notification_network:
+    driver: bridge
+  app-network:
+    external: true
+    name: app-network

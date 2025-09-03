@@ -1,0 +1,55 @@
+# judge-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: judge-service
+  namespace: default
+  labels:
+    app: judge-service
+spec:
+  replicas: 2  # 可以根据需要调整副本数
+  selector:
+    matchLabels:
+      app: judge-service
+  template:
+    metadata:
+      labels:
+        app: judge-service
+    spec:
+      containers:
+      - name: judge-service
+        image: judge-service:latest  # 确保镜像已构建并可用
+        imagePullPolicy: IfNotPresent  # 如果使用本地镜像，改为 Never
+        ports:
+        - containerPort: 8085
+        env:
+        - name: TEMP_DIR
+          valueFrom:
+            secretKeyRef:
+              name: judge-secret
+              key: temp_dir
+        resources:
+          requests:
+            memory: "512Mi"  # 评测服务可能需要更多内存
+            cpu: "500m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /  # 或者创建一个专门的健康检查端点
+            port: 8085
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8085
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: temp-storage
+          mountPath: /app/temp_eval_workspace
+      volumes:
+      - name: temp-storage
+        emptyDir: {}  # 使用临时存储，重启后数据会丢失

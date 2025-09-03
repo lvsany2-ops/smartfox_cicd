@@ -1,0 +1,49 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  user_db:
+    image: mysql:8.0
+    container_name: user_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: user_db
+      MYSQL_USER: user_user
+      MYSQL_PASSWORD: userpassword
+    ports:
+      - "3308:3306"
+    volumes:
+      - user_db_data:/var/lib/mysql
+    networks:
+      - user_network
+      
+
+  user_service:
+    build: .
+    image: user-service  
+    container_name: user-service
+    ports:
+      - "8081:8081"
+    environment:
+      DB_HOST: user_db
+      DB_PORT: 3306
+      DB_NAME: user_db
+      DB_USER: user_user
+      DB_PASSWORD: userpassword
+    depends_on:
+      - user_db
+    networks:
+      - user_network
+      - app-network
+    volumes:
+      - ./settings.yaml:/root/settings.yaml
+
+volumes:
+  user_db_data:
+
+networks:
+  user_network:
+    driver: bridge
+  app-network:
+    external: true
+    name: app-network

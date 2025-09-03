@@ -1,0 +1,63 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  submission_db:
+    image: mysql:8.0
+    container_name: submission_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: submission_db
+      MYSQL_submission: submission_user
+      MYSQL_PASSWORD: userpassword
+    ports:
+      - "3310:3306"
+    volumes:
+      - submission_db_data:/var/lib/mysql
+    networks:
+      - submission_network
+      
+
+  submission_service:
+    build: .
+    image: submission-service  
+    container_name: submission-service
+    ports:
+      - "8084:8084"
+    environment:
+      DB_HOST: submission_db
+      DB_PORT: 3306
+      DB_NAME: submission_db
+      DB_USER: submission_user
+      DB_PASSWORD: userpassword
+      EXPERIMENT_SERVICE_URL: http://experiment-service:8082
+      JUDGE_SERVICE_URL: http://judge-service:8085
+    depends_on:
+      - submission_db
+      - judge-service
+    networks:
+      - submission_network
+      - app-network
+    volumes:
+      - ./settings.yaml:/root/settings.yaml
+  
+
+  judge_service:
+    build: ../judge-service
+    image: judge-service
+    container_name: judge-service
+    ports:
+      - "8085:8085"
+    networks:
+      - submission_network
+      - app-network
+
+volumes:
+  submission_db_data:
+
+networks:
+  submission_network:
+    driver: bridge
+  app-network:
+    external: true
+    name: app-network

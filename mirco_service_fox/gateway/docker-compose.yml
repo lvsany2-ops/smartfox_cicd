@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  gateway:
+    build: .
+    image: gateway
+    container_name: gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - USER_SERVICE_URL=http://user-service:8081
+      - EXPERIMENT_SERVICE_URL=http://experiment-service:8082
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8083
+      - SUBMISSION_SERVICE_URL=http://submission-service:8084
+      - JWT_SECRET=a_secret_crect
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    external: true
+    name: app-network

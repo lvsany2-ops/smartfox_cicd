@@ -1,0 +1,72 @@
+# k8s/experiment-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: experiment-service
+  namespace: default
+  labels:
+    app: experiment-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: experiment-service
+  template:
+    metadata:
+      labels:
+        app: experiment-service
+    spec:
+      containers:
+      - name: experiment-service
+        image: experiment-service:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8082
+        env:
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: experiment-db-secret
+              key: host
+        - name: DB_PORT
+          value: "3306"
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: experiment-db-secret
+              key: database
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: experiment-db-secret
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: experiment-db-secret
+              key: password
+        - name: USER_SERVICE_URL
+          value: "http://user-service.default.svc.cluster.local:8081" 
+        - name: NOTIFICATION_SERVICE_URL
+          value: "http://notification-service.default.svc.cluster.local:8083"
+        - name: SUBMISSION_SERVICE_URL
+          value: "http://submission-service.default.svc.cluster.local:8084"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8082
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8082
+          initialDelaySeconds: 5
+          periodSeconds: 5

@@ -1,0 +1,87 @@
+{
+  "info": {
+    "_postman_id": "e3e1b1c0-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "name": "Experiment Service API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "集成测试：实验服务主要接口（学生+教师）"
+  },
+  "item": [
+    {
+      "name": "学生-获取实验列表",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/student/experiments?page=1&limit=10&status=all",
+          "host": ["{{base_url}}"],
+          "path": ["api", "student", "experiments"],
+          "query": [
+            {"key": "page", "value": "1"},
+            {"key": "limit", "value": "10"},
+            {"key": "status", "value": "all"}
+          ]
+        }
+      }
+    },
+    {
+      "name": "学生-获取实验详情",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/student/experiments/:experiment_id",
+          "host": ["{{base_url}}"],
+          "path": ["api", "student", "experiments", ":experiment_id"]
+        }
+      }
+    },
+    {
+      "name": "教师-创建实验",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"实验标题\",\n  \"description\": \"实验描述\",\n  \"permission\": 1,\n  \"deadline\": \"2025-12-31T23:59:59Z\",\n  \"student_ids\": [\"student1\", \"student2\"],\n  \"questions\": [\n    {\n      \"type\": \"choice\",\n      \"content\": \"题目内容\",\n      \"options\": [\"A\", \"B\", \"C\", \"D\"],\n      \"correct_answer\": \"A\",\n      \"score\": 10\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/teacher/experiments",
+          "host": ["{{base_url}}"],
+          "path": ["api", "teacher", "experiments"]
+        }
+      }
+    },
+    {
+      "name": "教师-更新实验",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"新标题\",\n  \"description\": \"新描述\",\n  \"permission\": 1,\n  \"deadline\": \"2025-12-31T23:59:59Z\",\n  \"student_ids\": [\"student1\", \"student2\"],\n  \"questions\": [\n    {\n      \"type\": \"choice\",\n      \"content\": \"题目内容\",\n      \"options\": [\"A\", \"B\", \"C\", \"D\"],\n      \"correct_answer\": \"A\",\n      \"score\": 10\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/api/teacher/experiments/:experiment_id",
+          "host": ["{{base_url}}"],
+          "path": ["api", "teacher", "experiments", ":experiment_id"]
+        }
+      }
+    },
+    {
+      "name": "教师-删除实验",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/teacher/experiments/:experiment_id",
+          "host": ["{{base_url}}"],
+          "path": ["api", "teacher", "experiments", ":experiment_id"]
+        }
+      }
+    }
+  ]
+}

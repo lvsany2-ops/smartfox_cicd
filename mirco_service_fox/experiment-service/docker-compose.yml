@@ -1,0 +1,50 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  experiment_db:
+    image: mysql:8.0
+    container_name: experiment_db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: experiment_db
+      MYSQL_USER: experiment_user
+      MYSQL_PASSWORD: userpassword
+    ports:
+      - "3309:3306"
+    volumes:
+      - experiment_db_data:/var/lib/mysql
+    networks:
+      - experiment_network
+      
+
+  experiment_service:
+    build: .
+    image: experiment-service 
+    container_name: experiment-service
+    ports:
+      - "8082:8082"
+    environment:
+      DB_HOST: experiment_db
+      DB_PORT: 3306
+      DB_NAME: experiment_db
+      DB_USER: experiment_user
+      DB_PASSWORD: userpassword
+      USER_SERVICE_URL: http://user-service:8081
+      NOTIFICATION_SERVICE_URL: http://notification-service:8083
+      SUBMISSION_SERVICE_URL: http://submission-service:8084
+    depends_on:
+      - experiment_db
+    networks:
+      - experiment_network
+      - app-network
+
+volumes:
+  experiment_db_data:
+
+networks:
+  experiment_network:
+    driver: bridge
+  app-network:
+    external: true
+    name: app-network

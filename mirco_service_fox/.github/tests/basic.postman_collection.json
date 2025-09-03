@@ -1,0 +1,97 @@
+{
+  "info": {
+    "name": "SmartFox Basic API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Gateway Health",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('status is 200', function(){ pm.response.to.have.status(200); });",
+              "pm.test('body has OK', function(){ pm.expect(pm.response.text()).to.include('OK'); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"{{name}}\",\n  \"telephone\": \"{{telephone}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"student\"\n}"
+        },
+        "url": "{{base_url}}/api/auth/register"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('register 200', function(){ pm.response.to.have.status(200); });",
+              "var res = pm.response.json(); pm.environment.set('user_id', res.user_id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {"key": "Content-Type", "value": "application/json"}
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"telephone\": \"{{telephone}}\",\n  \"password\": \"{{password}}\"\n}"
+        },
+        "url": "{{base_url}}/api/auth/login"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('login 200', function(){ pm.response.to.have.status(200); });",
+              "var res = pm.response.json(); pm.environment.set('token', res.data.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {"key": "Authorization", "value": "{{token}}"}
+        ],
+        "url": "{{base_url}}/api/auth/profile"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('profile 200', function(){ pm.response.to.have.status(200); });",
+              "pm.test('has user_id', function(){ pm.expect(pm.response.json()).to.have.property('user_id'); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
