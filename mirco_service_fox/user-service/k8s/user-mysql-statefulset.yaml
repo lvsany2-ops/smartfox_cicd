@@ -44,6 +44,11 @@ spec:
             secretKeyRef:
               name: user-db-secret
               key: database
+        # 优化 MySQL 启动速度
+        - name: MYSQL_INIT_CONNECT
+          value: "SET autocommit=1"
+        - name: MYSQL_SKIP_NAME_RESOLVE
+          value: "1"
         ports:
         - containerPort: 3306
         volumeMounts:
@@ -51,11 +56,11 @@ spec:
           mountPath: /var/lib/mysql
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "250m"
+            memory: "128Mi"  # 减少内存请求
+            cpu: "100m"      # 减少 CPU 请求
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "128Mi"  # 减少内存限制
+            cpu: "250m"      # 减少 CPU 限制
         livenessProbe:
           exec:
             command: ["mysqladmin", "ping", "-h", "localhost"]

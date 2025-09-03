@@ -43,7 +43,13 @@ kubectl apply -f gateway/k8s/
 
 echo "[k8s] Wait for deployments"
 for d in user-service experiment-service submission-service notification-service judge-service gateway; do
-  kubectl rollout status deploy/$d -n default --timeout=600s
+  echo "等待部署 $d..."
+  kubectl rollout status deploy/$d -n default --timeout=300s || {
+    echo "部署 $d 失败，运行诊断脚本："
+    chmod +x .github/scripts/debug-k8s.sh
+    .github/scripts/debug-k8s.sh
+    exit 1
+  }
 done
 
 echo "[tests] Health checks"
