@@ -4,7 +4,8 @@ set -euo pipefail
 # This script deploys the microservices into a local KinD cluster and runs basic smoke tests.
 
 ROOT_DIR=$(cd "$(dirname "$0")/../.." && pwd)
-cd "$ROOT_DIR/mirco_service_fox"
+# ROOT_DIR already points to the mirco_service_fox folder where services live
+cd "$ROOT_DIR"
 
 CLUSTER_NAME=${CLUSTER_NAME:-smartfox-ci}
 
