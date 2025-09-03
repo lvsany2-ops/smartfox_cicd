@@ -14,7 +14,12 @@ func main() {
 	routers.RegisterRoutes(r)
 
 	config.InitDB()
+	// 允许在 CI/本地集成测试中跳过 OSS 初始化，避免外部依赖导致进程退出
 	config.InitOSS()
+	// 轻量级存活探针端点，不依赖外部资源
+	r.GET("/live", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "alive"})
+	})
 	r.GET("/health", func(c *gin.Context) {
 		// 检查数据库连接
 		db := config.DB

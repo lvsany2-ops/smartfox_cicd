@@ -31,6 +31,9 @@ func main() {
 	router := routers.InitRouter()
 
 	// 添加健康检查端点
+	router.GET("/live", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "alive"})
+	})
 	router.GET("/health", func(c *gin.Context) {
 		// 检查数据库连接
 		db := database.GetDB()

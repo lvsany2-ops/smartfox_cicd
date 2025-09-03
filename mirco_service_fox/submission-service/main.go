@@ -17,6 +17,9 @@ func main() {
 	//连接数据库
 	global.DB = core.InitGorm()
 	router := routers.InitRouter()
+	router.GET("/live", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"status": "alive"})
+	})
 	router.GET("/health", func(c *gin.Context) {
 		// 检查数据库连接
 		db := global.DB

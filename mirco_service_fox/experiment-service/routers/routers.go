@@ -7,8 +7,8 @@ import (
 )
 
 func RegisterRoutes(r *gin.Engine) {
-	// Health endpoint for k8s probes
-	r.GET("/health", controllers.HealthCheck)
+	// 保留一个轻量端点作为手工探活使用（集群探针使用 main.go 中定义的 /health 和 /live）
+	r.GET("/ping", controllers.HealthCheck)
 	student := r.Group("/api/student")
 	{
 

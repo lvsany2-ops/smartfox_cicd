@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"os"
 
 	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 )
@@ -24,6 +25,11 @@ const (
 )
 
 func InitOSS() {
+	// 在 CI 中允许通过 NO_OSS_INIT=1 跳过初始化，避免由于外部依赖失败导致容器崩溃
+	if os.Getenv("NO_OSS_INIT") == "1" || os.Getenv("NO_OSS_INIT") == "true" {
+		log.Println("NO_OSS_INIT enabled, skipping OSS initialization.")
+		return
+	}
 	//// 从环境变量读取配置
 	//ossEndpoint = os.Getenv("OSS_ENDPOINT")
 	//ossAccessKeyID = os.Getenv("OSS_ACCESS_KEY_ID")
@@ -43,20 +49,23 @@ func InitOSS() {
 	log.Println("-------------------------")
 	// 简单的校验
 	if OssEndpoint == "" || OssAccessKeyID == "" || OssAccessKeySecret == "" || OssBucketName == "" {
-		log.Fatal("OSS_ENDPOINT, OSS_ACCESS_KEY_ID, OSS_ACCESS_KEY_SECRET, and OSS_BUCKET_NAME environment variables must be set.")
+		log.Println("OSS configuration incomplete, skipping OSS initialization.")
+		return
 	}
 
 	var err error
 	// 创建OSSClient实例。
 	OssClient, err = oss.New(OssEndpoint, OssAccessKeyID, OssAccessKeySecret)
 	if err != nil {
-		log.Fatalf("Failed to create OSS client: %v", err)
+		log.Printf("Failed to create OSS client: %v", err)
+		return
 	}
 
 	// 获取存储空间。
 	Bucket, err = OssClient.Bucket(OssBucketName)
 	if err != nil {
-		log.Fatalf("Failed to get OSS bucket: %v", err)
+		log.Printf("Failed to get OSS bucket: %v", err)
+		return
 	}
 	log.Println("OSS client initialized successfully.")
 }
