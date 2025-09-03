@@ -41,10 +41,21 @@ kubectl apply -f notification-service/k8s/
 kubectl apply -f judge-service/k8s/
 kubectl apply -f gateway/k8s/
 
+echo "[k8s] Wait for MySQL StatefulSets to be ready first"
+for mysql in mysql-user mysql-experiment mysql-submission mysql-notification; do
+  echo "等待 $mysql StatefulSet 准备就绪..."
+  kubectl wait --for=condition=ready pod -l app=$mysql --timeout=600s || {
+    echo "$mysql StatefulSet 未能就绪，运行诊断脚本："
+    chmod +x .github/scripts/debug-k8s.sh
+    .github/scripts/debug-k8s.sh
+    exit 1
+  }
+done
+
 echo "[k8s] Wait for deployments"
 for d in user-service experiment-service submission-service notification-service judge-service gateway; do
   echo "等待部署 $d..."
-  kubectl rollout status deploy/$d -n default --timeout=300s || {
+  kubectl rollout status deploy/$d -n default --timeout=600s || {
     echo "部署 $d 失败，运行诊断脚本："
     chmod +x .github/scripts/debug-k8s.sh
     .github/scripts/debug-k8s.sh

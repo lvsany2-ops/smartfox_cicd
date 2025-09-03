@@ -44,6 +44,20 @@ spec:
             secretKeyRef:
               name: submission-db-secret
               key: database
+        # 优化 MySQL 启动速度和内存使用
+        - name: MYSQL_INIT_CONNECT
+          value: "SET autocommit=1"
+        - name: MYSQL_SKIP_NAME_RESOLVE
+          value: "1"
+        # 添加 MySQL 性能优化配置
+        - name: MYSQL_INNODB_BUFFER_POOL_SIZE
+          value: "256M"
+        - name: MYSQL_INNODB_LOG_FILE_SIZE
+          value: "32M"
+        - name: MYSQL_INNODB_FLUSH_METHOD
+          value: "O_DIRECT"
+        - name: MYSQL_MAX_CONNECTIONS
+          value: "50"
         ports:
         - containerPort: 3306
         volumeMounts:
@@ -51,11 +65,11 @@ spec:
           mountPath: /var/lib/mysql
         resources:
           requests:
-            memory: "128Mi"
-            cpu: "250m"
+            memory: "512Mi"  # 增加内存请求以支持 MySQL 8.0
+            cpu: "100m"      # 减少 CPU 请求
           limits:
-            memory: "512Mi"
-            cpu: "500m"
+            memory: "1Gi"    # 增加内存限制以支持 MySQL 8.0
+            cpu: "500m"      # 保持 CPU 限制
         livenessProbe:
           exec:
             command: ["mysqladmin", "ping", "-h", "localhost"]
