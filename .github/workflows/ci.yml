@@ -11,8 +11,8 @@ permissions:
 
 jobs:
   build-and-validate:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    runs-on: self-hosted  # 使用 self-hosted runner
+    timeout-minutes: 60   # 增加超时时间，因为本地环境可能需要更多时间
     defaults:
       run:
         shell: bash
@@ -21,20 +21,17 @@ jobs:
       - name: 检出代码
         uses: actions/checkout@v4
 
-      - name: 设置Go环境
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
+      # 移除 setup-go action，假设 self-hosted runner 已经安装了 Go
+      - name: 验证Go环境
+        run: |
+          go version
+          echo "Go环境已就绪"
 
-      - name: 缓存 Go 依赖
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+      # 移除缓存步骤，使用本地缓存
+      - name: 清理Go模块缓存 (可选)
+        run: |
+          echo "使用本地Go模块缓存"
+          go clean -modcache || true
 
       - name: 下载 Go 模块依赖
         env:
@@ -70,28 +67,29 @@ jobs:
           cd submission-service
           go build ./...
 
-      - name: 设置Python环境
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      # 移除 setup-python action，假设 self-hosted runner 已经安装了 Python
+      - name: 验证Python环境
+        run: |
+          python3 --version || python --version
+          pip3 --version || pip --version
+          echo "Python环境已就绪"
 
       - name: Python deps (judge-service)
         run: |
           cd judge-service
-          python -m pip install -U pip
-          pip install -r requirements.txt
-          python - <<'PY'
+          python3 -m pip install -U pip || python -m pip install -U pip
+          pip3 install -r requirements.txt || pip install -r requirements.txt
+          python3 - <<'PY' || python - <<'PY'
           import flask
           print('Flask version:', flask.__version__)
           PY
 
-      # Frontend build: Node.js setup + npm ci + build
-      - name: 设置Node环境
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: smartfox_front/package-lock.json
+      # 移除 setup-node action，假设 self-hosted runner 已经安装了 Node.js
+      - name: 验证Node环境
+        run: |
+          node --version
+          npm --version
+          echo "Node.js环境已就绪"
 
       - name: 安装前端依赖并构建
         run: |
@@ -100,8 +98,12 @@ jobs:
           npm ci
           CI=false npm run build
 
-      - name: 构建docker镜像 (syntax/metadata check)
-        uses: docker/setup-buildx-action@v3
+      # 移除 docker/setup-buildx-action，使用本地 Docker
+      - name: 验证Docker环境
+        run: |
+          docker --version
+          docker-compose --version || docker compose version || echo "Docker Compose not required for this step"
+          echo "Docker环境已就绪"
 
       - name: 构建docker镜像
         run: |
@@ -115,10 +117,16 @@ jobs:
           cd ..
           docker build -t smartfox-front:ci ./smartfox_front
 
-      - name: Set up KinD
-        uses: helm/kind-action@v1.10.0
-        with:
-          cluster_name: smartfox-ci
+      # 移除 helm/kind-action，使用本地安装的 KinD
+      - name: 验证KinD环境
+        run: |
+          kind --version
+          kubectl version --client
+          echo "KinD和kubectl环境已就绪"
+
+      - name: 清理之前的集群（如果存在）
+        run: |
+          kind delete cluster --name smartfox-ci || echo "集群不存在，跳过删除"
 
       - name: Deploy to KinD and run smoke tests
         run: |
@@ -126,7 +134,14 @@ jobs:
           .github/scripts/kind-deploy-and-test.sh
       - name: E2E smoke
         run: |
-          sudo apt-get update && sudo apt-get install -y jq
+          # 使用本地安装的 jq，如果没有则安装
+          if ! command -v jq &> /dev/null; then
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+              brew install jq
+            elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+              sudo apt-get update && sudo apt-get install -y jq
+            fi
+          fi
           chmod +x .github/scripts/smoke-e2e.sh
           .github/scripts/smoke-e2e.sh
       - name: Postman tests

@@ -15,7 +15,7 @@ env:
 
 jobs:
   build-and-push:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # 使用 self-hosted runner
     defaults:
       run:
         shell: bash
@@ -49,7 +49,7 @@ jobs:
   deploy:
     needs: build-and-push
     if: ${{ github.ref_type == 'tag' && secrets.KUBE_CONFIG != '' }}
-    runs-on: ubuntu-latest
+    runs-on: self-hosted  # 使用 self-hosted runner
     env:
       KUBECONFIG: ${{ runner.temp }}/kubeconfig
     steps:
@@ -67,7 +67,12 @@ jobs:
           # Patch images using yq if available, else sed
           set -e
           if ! command -v yq >/dev/null 2>&1; then
-            sudo snap install yq || true
+            # 尝试使用本地包管理器安装 yq
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+              brew install yq || true
+            elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+              sudo snap install yq || sudo apt-get install yq || true
+            fi
           fi
           patch_img(){
             file="$1"; image="$2";
