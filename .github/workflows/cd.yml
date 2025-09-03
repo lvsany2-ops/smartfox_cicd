@@ -48,16 +48,25 @@ jobs:
 
   deploy:
     needs: build-and-push
-    if: ${{ github.ref_type == 'tag' && secrets.KUBE_CONFIG != '' }}
+    if: github.ref_type == 'tag'
     runs-on: self-hosted  # 使用 self-hosted runner
-    env:
-      KUBECONFIG: ${{ runner.temp }}/kubeconfig
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set kubeconfig
+      - name: Check if kubeconfig exists
+        id: check-kubeconfig
         run: |
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$KUBECONFIG"
+          if [ -n "${{ secrets.KUBE_CONFIG }}" ]; then
+            echo "has_kubeconfig=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_kubeconfig=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set kubeconfig
+        if: steps.check-kubeconfig.outputs.has_kubeconfig == 'true'
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > ~/.kube/config
 
       - name: Render images to manifests
         id: render
