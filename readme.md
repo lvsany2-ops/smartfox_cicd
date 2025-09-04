@@ -21,6 +21,7 @@ basic.postman_collection.json
 健康检查、注册、登录、个人信息 4 个基本用例
 experiment-service 细化
 routers/routers.go：补充 /health
+
 main.go：OSS 初始化改为受 ENABLE_OSS 控制，避免 CI 外部依赖
 
 
