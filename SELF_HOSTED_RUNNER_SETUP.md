@@ -186,6 +186,8 @@ kubectl version --client || echo "❌ kubectl 未安装"
 echo "检查 kind..."
 kind --version || echo "❌ kind 未安装"
 
+
+
 echo "检查 jq..."
 jq --version || echo "❌ jq 未安装"
 
