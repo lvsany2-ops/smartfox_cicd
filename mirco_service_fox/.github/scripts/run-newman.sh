@@ -46,6 +46,33 @@ for i in {1..60}; do
     sleep 2
 done
 
+# 预置测试账号，确保学生/教师登录用例可通过
+echo "[seed] Seeding default test accounts (student_test / teacher_test)"
+seed_user() {
+    local name="$1"; local tel="$2"; local pwd="$3"; local role="$4"
+    local payload
+    payload=$(cat <<JSON
+{"name":"${name}","telephone":"${tel}","password":"${pwd}","role":"${role}"}
+JSON
+)
+    # 注册接口允许匿名访问
+    local http_code
+    http_code=$(curl -s -o /tmp/seed_${name}.json -w "%{http_code}" \
+        -H 'Content-Type: application/json' \
+        -X POST "$BASE_URL/api/auth/register" \
+        --data "$payload" || true)
+    if [[ "$http_code" == "200" ]]; then
+        echo "[seed] Created user '$name' ($role)"
+    else
+        # 422 代表已存在等，视为可忽略
+        echo "[seed] Skipped creating '$name' (HTTP $http_code)"
+    fi
+}
+
+# 使用固定且合法的手机号，避免重复失败
+seed_user "student_test" "13800000001" "student123" "student"
+seed_user "teacher_test" "13800000002" "teacher123" "teacher"
+
 # 创建环境变量文件
 env_json=$(mktemp)
 cat > "$env_json" <<JSON
@@ -120,8 +147,11 @@ echo ""
 echo "========================================="
 echo "🧪 运行基础测试集合 (base.postman_collection.json)"
 echo "========================================="
+# 将 base 运行产生的环境变量导出到临时文件，供后续集合复用（例如注册后的用户名/令牌等）
+ENV_FILE_OUT="$(mktemp)"
 if newman run "$TEST_DIR/base.postman_collection.json" \
     -e "$ENV_FILE" \
+    --export-environment "$ENV_FILE_OUT" \
     --reporters cli,json \
     --reporter-json-export "/tmp/base-test-results.json" \
     --timeout-request 30000 \
@@ -136,6 +166,12 @@ else
     fi
     exit 1
 fi
+
+    # 使用 base 运行后的环境（包含动态生成的用户名/密码/令牌等）
+    if [[ -s "$ENV_FILE_OUT" ]]; then
+        ENV_FILE="$ENV_FILE_OUT"
+        echo "[env] Using exported environment from base run: $ENV_FILE"
+    fi
 
 echo ""
 echo "========================================="
