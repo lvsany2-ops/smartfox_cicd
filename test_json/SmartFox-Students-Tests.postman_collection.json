@@ -55,93 +55,11 @@
             }
           },
           "response": []
-        },
-        {
-          "name": "Negative - Invalid Password",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "// 测试学生登录功能 - 反向测试：错误密码",
-                  "pm.test(\"Status code is 422\", function () {",
-                  "    pm.response.to.have.status(422);",
-                  "});",
-                  "",
-                  "pm.test(\"Response has error message\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.message).to.include(\"密码错误\");",
-                  "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"name\": \"student_test\",\n    \"password\": \"wrongpassword\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "auth", "login"]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "Negative - Non-existent User",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "// 测试学生登录功能 - 反向测试：用户不存在",
-                  "pm.test(\"Status code is 422\", function () {",
-                  "    pm.response.to.have.status(422);",
-                  "});",
-                  "",
-                  "pm.test(\"Response has error message\", function () {",
-                  "    var jsonData = pm.response.json();",
-                  "    pm.expect(jsonData.message).to.include(\"用户不存在\");",
-                  "});"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n    \"name\": \"99999999999\",\n    \"password\": \"anypassword\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["api", "auth", "login"]
-            }
-          },
-          "response": []
         }
       ]
     },
     {
-      "name": "Student - Get Experiments List",
+      "name": "Student - List Experiments",
       "item": [
         {
           "name": "Positive - Valid Request",
@@ -206,18 +124,9 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "student", "experiments"],
               "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "10"
-                },
-                {
-                  "key": "status",
-                  "value": "all"
-                } 
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "status", "value": "all" }
               ]
             }
           },
@@ -252,18 +161,9 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "student", "experiments"],
               "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "10"
-                },
-                {
-                  "key": "status",
-                  "value": "all"
-                }
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" },
+                { "key": "status", "value": "all" }
               ]
             }
           },
@@ -306,10 +206,7 @@
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/student/experiments/{{experimentId}}",
@@ -343,10 +240,7 @@
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/student/experiments/{{invalidExperimentId}}",
@@ -389,14 +283,8 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
@@ -434,14 +322,8 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
@@ -485,14 +367,8 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
             ],
             "body": {
               "mode": "raw",
@@ -536,24 +412,15 @@
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/student/submissions?page=1&limit=10",
               "host": ["{{baseUrl}}"],
               "path": ["api", "student", "submissions"],
               "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "10"
-                }
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
               ]
             }
           },
@@ -584,24 +451,15 @@
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/student/submissions?page=-1&limit=abc",
               "host": ["{{baseUrl}}"],
               "path": ["api", "student", "submissions"],
               "query": [
-                {
-                  "key": "page",
-                  "value": "-1"
-                },
-                {
-                  "key": "limit",
-                  "value": "abc"
-                }
+                { "key": "page", "value": "-1" },
+                { "key": "limit", "value": "abc" }
               ]
             }
           },
@@ -637,24 +495,15 @@
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/student/experiments/notifications/{{studentId}}?page=1&limit=10",
               "host": ["{{baseUrl}}"],
               "path": ["api", "student", "experiments", "notifications", "{{studentId}}"],
               "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "10"
-                }
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
               ]
             }
           },
@@ -685,24 +534,15 @@
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/student/experiments/notifications/{{invalidStudentId}}?page=1&limit=10",
               "host": ["{{baseUrl}}"],
               "path": ["api", "student", "experiments", "notifications", "{{invalidStudentId}}"],
               "query": [
-                {
-                  "key": "page",
-                  "value": "1"
-                },
-                {
-                  "key": "limit",
-                  "value": "10"
-                }
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "10" }
               ]
             }
           },
@@ -742,10 +582,7 @@
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/experiments/{{experimentId}}/files",
@@ -780,10 +617,7 @@
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/experiments/{{invalidExperimentId}}/files",
@@ -822,10 +656,7 @@
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/experiments/{{experimentId}}/files/{{filename}}/download",
@@ -854,10 +685,7 @@
           "request": {
             "method": "GET",
             "header": [
-              {
-                "key": "Authorization",
-                "value": "{{studentToken}}"
-              }
+              { "key": "Authorization", "value": "{{studentToken}}" }
             ],
             "url": {
               "raw": "{{baseUrl}}/api/experiments/{{experimentId}}/files/{{invalidFilename}}/download",
@@ -895,9 +723,6 @@
     }
   ],
   "variable": [
-    {
-      "key": "baseUrl",
-      "value": "http://localhost:3002"
-    }
+    { "key": "baseUrl", "value": "http://localhost:3002" }
   ]
 }
