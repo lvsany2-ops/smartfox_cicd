@@ -7,6 +7,7 @@ import (
 	"experiment-service/models"
 	"experiment-service/utils"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -772,18 +773,42 @@ func HandleTeacherUpload(c *gin.Context) {
 	}
 	defer src.Close()
 
-	// 构建 OSS 中的对象键 (Object Key)
 	// 使用 filepath.Base 获取安全的文件名
 	filename := filepath.Base(file.Filename)
-	objectKey := fmt.Sprintf("%s%s/%s", config.OssExperimentPrefix, experimentID, filename)
 
-	// 上传文件流。
-	err = config.Bucket.PutObject(objectKey, src)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to upload file to OSS: %v", err)})
+	// 当 OSS 未初始化（NO_OSS_INIT）时，写入本地文件系统作为降级方案
+	if config.Bucket == nil {
+		localDir := filepath.Join("uploads", experimentID)
+		if err := os.MkdirAll(localDir, 0755); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create upload dir: %v", err)})
+			return
+		}
+		dstPath := filepath.Join(localDir, filename)
+		dst, err := os.Create(dstPath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to create file: %v", err)})
+			return
+		}
+		defer dst.Close()
+		if _, err := io.Copy(dst, src); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to save file: %v", err)})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"message":      "File uploaded successfully (local)",
+			"experimentId": experimentID,
+			"filename":     filename,
+			"path":         dstPath,
+		})
 		return
 	}
 
+	// 构建 OSS 中的对象键 (Object Key)
+	objectKey := fmt.Sprintf("%s%s/%s", config.OssExperimentPrefix, experimentID, filename)
+	if err = config.Bucket.PutObject(objectKey, src); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to upload file to OSS: %v", err)})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"message":      "File uploaded successfully to OSS",
 		"experimentId": experimentID,
@@ -799,43 +824,46 @@ func HandleStudentListFiles(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Experiment ID is required"})
 		return
 	}
+	// 本地降级：列出 uploads/<experimentID> 下的文件
+	if config.Bucket == nil {
+		localDir := filepath.Join("uploads", experimentID)
+		entries, err := os.ReadDir(localDir)
+		files := []string{}
+		if err == nil {
+			for _, e := range entries {
+				if !e.IsDir() {
+					files = append(files, e.Name())
+				}
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{"experimentId": experimentID, "files": files})
+		return
+	}
 
 	// 构造OSS对象前缀，用于列举
 	prefixToList := fmt.Sprintf("%s%s/", config.OssExperimentPrefix, experimentID)
-
 	var files []string
-	// oss.Prefix 指定只列举该前缀下的对象
-	// oss.Delimiter("/") 可以模拟文件夹结构，但这里我们直接列出所有文件
-	marker := "" // 用于分页，如果文件很多的话
+	marker := ""
 	for {
 		lsRes, err := config.Bucket.ListObjects(oss.Marker(marker), oss.Prefix(prefixToList))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to list objects from OSS: %v", err)})
 			return
 		}
-
 		for _, object := range lsRes.Objects {
-			// object.Key 是完整的 "experiments/exp001/report.pdf"
-			// 我们需要提取文件名 "report.pdf"
-			// 确保对象不是 "目录" 本身 (如果以 / 结尾且大小为0，通常是目录占位符)
 			if !strings.HasSuffix(object.Key, "/") || object.Size > 0 {
 				fileName := strings.TrimPrefix(object.Key, prefixToList)
-				if fileName != "" { // 避免空文件名 (例如前缀本身)
+				if fileName != "" {
 					files = append(files, fileName)
 				}
 			}
 		}
-
 		if !lsRes.IsTruncated {
 			break
 		}
 		marker = lsRes.NextMarker
 	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"experimentId": experimentID,
-		"files":        files,
-	})
+	c.JSON(http.StatusOK, gin.H{"experimentId": experimentID, "files": files})
 }
 
 // handleStudentDownloadFileOSS 生成预签名URL供学生下载文件
@@ -847,14 +875,30 @@ func HandleStudentDownloadFile(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Experiment ID and filename are required"})
 		return
 	}
+	// 本地降级：直接读取 uploads/<experimentID>/<filename> 并下发
+	if config.Bucket == nil {
+		localPath := filepath.Join("uploads", experimentID, filepath.Base(filename))
+		f, err := os.Open(localPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "File not found"})
+			} else {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open file"})
+			}
+			return
+		}
+		defer f.Close()
+		c.Header("Content-Type", "application/octet-stream")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filepath.Base(filename)))
+		if _, err := io.Copy(c.Writer, f); err != nil {
+			// 写流失败
+			return
+		}
+		return
+	}
 
 	// 构建完整的OSS对象键
-	// 使用 filepath.Base 清理 filename，增加一层保护
 	objectKey := fmt.Sprintf("%s%s/%s", config.OssExperimentPrefix, experimentID, filepath.Base(filename))
-
-	// 检查对象是否存在 (可选，但推荐)
-	// SignURL 本身不检查对象是否存在，它只是签名一个访问该对象的请求
-	// 如果对象不存在，用户访问签名URL时会收到OSS的404错误
 	isExist, err := config.Bucket.IsObjectExist(objectKey)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error checking object existence"})
@@ -864,9 +908,6 @@ func HandleStudentDownloadFile(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "File not found in OSS"})
 		return
 	}
-
-	// 生成带签名的URL以下载文件
-	// 第三个参数是过期时间（秒）
 	signedURL, err := config.Bucket.SignURL(objectKey, oss.HTTPGet, config.SignedURLExpiry)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to sign URL: %v", err)})
