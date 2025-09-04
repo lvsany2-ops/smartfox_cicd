@@ -1,0 +1,29 @@
+{
+  "id": "e12f3a4b-5678-90cd-abcd-1234567890ef",
+  "name": "Local Env",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:3002",
+      "enabled": true
+    },
+    {
+      "key": "teacherToken",
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJVc2VySWQiOjIsImV4cCI6MTc1Njk1NDg4MiwiaWF0IjoxNzU2MzUwMDgyLCJpc3MiOiIxMjcuMC4wLjEiLCJzdWIiOiJ1c2VyIHRva2VuIn0.FcwevY2-QWOmJIQkrfg6FljVzw8P3pDMSk4BdChSvCA",
+      "enabled": true
+    },
+    {
+      "key": "studentToken",
+      "value": "",
+      "enabled": true
+    },
+    {
+      "key": "studentId",
+      "value": "3",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment",
+  "_postman_exported_at": "2025-08-28T12:00:00.000Z",
+  "_postman_exported_using": "Postman/11.0.0"
+}

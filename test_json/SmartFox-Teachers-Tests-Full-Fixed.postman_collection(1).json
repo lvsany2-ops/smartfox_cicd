@@ -132,7 +132,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Status code is 201\", () => pm.response.to.have.status(201));",
                   "let jsonData = pm.response.json();",
                   "if(jsonData.data && jsonData.data.group_id){ pm.environment.set('groupId', jsonData.data.group_id); }"
                 ]
@@ -155,7 +155,7 @@
           "event": [
             {
               "listen": "test",
-              "script": {"type": "text/javascript","exec": ["pm.test(\"Status code is 422\", () => pm.response.to.have.status(422));"]}
+              "script": {"type": "text/javascript","exec": ["pm.test(\"Status code is 400\", () => pm.response.to.have.status(400));"]}
             }
           ]
         },
@@ -242,7 +242,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n\"title\":\"Exp1\",\"description\":\"d\",\"permission\":1,\n\"deadline\":\"2099-12-31T23:59:00\",\n\"student_ids\":[\"1\"],\n\"questions\":[{\"type\":\"choice\",\"content\":\"Q1\",\"options\":[\"A\",\"B\"],\"correct_answer\":\"A\",\"score\":10}]}\n"
+              "raw": "{\n\"title\":\"Exp1\",\"description\":\"d\",\"permission\":1,\n\"deadline\":\"2099-12-31T23:59:00Z\",\n\"student_ids\":[\"1\"],\n\"questions\":[{\"type\":\"choice\",\"content\":\"Q1\",\"options\":[\"A\",\"B\"],\"correct_answer\":\"A\",\"score\":10}]}\n"
             },
             "url": {"raw": "{{baseUrl}}/api/teacher/experiments","host": ["{{baseUrl}}"],"path": ["api","teacher","experiments"]}
           },
@@ -253,7 +253,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Status code is 201\", () => pm.response.to.have.status(201));",
                   "let jsonData = pm.response.json();",
                   "if(jsonData.data && jsonData.data.experiment_id){ pm.environment.set('experimentId', jsonData.data.experiment_id); }"
                 ]
@@ -276,7 +276,7 @@
           "event": [
             {
               "listen": "test",
-              "script": {"type": "text/javascript","exec": ["pm.test(\"Status code is 422\", () => pm.response.to.have.status(422));"]}
+              "script": {"type": "text/javascript","exec": ["pm.test(\"Status code is 400\", () => pm.response.to.have.status(400));"]}
             }
           ]
         }
