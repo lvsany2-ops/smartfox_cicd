@@ -19,9 +19,9 @@
 							"pm.environment.set(\"dynamicUsername\", `testuser_${randomNumber}`);\r",
 							"// 生成密码\r",
 							"pm.environment.set(\"dynamicPassword\", `${randomNumber}`);\r",
-							"//生成手机号\r",
-							"const number = Math.floor(Math.random() * 89999999999+1000000000);\r",
-							"pm.environment.set(\"dynamicNumber\", `${number}`);\r",
+							"// 生成11位手机号（以1开头）\r",
+							"const number = '1' + Math.floor(Math.random() * 1e10).toString().padStart(10, '0');\r",
+							"pm.environment.set(\"dynamicNumber\", number);\r",
 							""
 						],
 						"type": "text/javascript",
