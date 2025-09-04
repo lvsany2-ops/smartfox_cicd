@@ -253,7 +253,9 @@ func GetExperimentDetail(c *gin.Context) {
 	for _, q := range experiment.Questions {
 		totalScore += q.Score
 	}
-	isExpired := experiment.Permission == 0 && time.Now().After(experiment.Deadline)
+	// Consider experiments with permission=0 as unavailable for submission (treat as expired),
+	// or any past-deadline experiment.
+	isExpired := experiment.Permission == 0 || time.Now().After(experiment.Deadline)
 
 	c.JSON(http.StatusOK, GetExperimentDetailResponse{
 		ExperimentID: experiment.ID,

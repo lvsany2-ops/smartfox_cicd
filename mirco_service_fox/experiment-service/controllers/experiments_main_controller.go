@@ -828,12 +828,20 @@ func HandleStudentListFiles(c *gin.Context) {
 	if config.Bucket == nil {
 		localDir := filepath.Join("uploads", experimentID)
 		entries, err := os.ReadDir(localDir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				// 为了兼容测试用例：当实验不存在或目录缺失时返回 files: null
+				c.JSON(http.StatusOK, gin.H{"experimentId": experimentID, "files": nil})
+				return
+			}
+			// 其他读取错误
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to read dir: %v", err)})
+			return
+		}
 		files := []string{}
-		if err == nil {
-			for _, e := range entries {
-				if !e.IsDir() {
-					files = append(files, e.Name())
-				}
+		for _, e := range entries {
+			if !e.IsDir() {
+				files = append(files, e.Name())
 			}
 		}
 		c.JSON(http.StatusOK, gin.H{"experimentId": experimentID, "files": files})

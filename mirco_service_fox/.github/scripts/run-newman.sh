@@ -173,6 +173,169 @@ fi
         echo "[env] Using exported environment from base run: $ENV_FILE"
     fi
 
+# 额外：登录固定学生与老师账号，便于后续教师端创建实验并向学生分配
+echo "[auth] Logging in teacher_test and student_test to capture tokens and IDs"
+login_json=$(mktemp)
+teacher_token=""
+student_token=""
+teacher_id=""
+student_id=""
+
+# teacher login
+curl -s -H 'Content-Type: application/json' -X POST "$BASE_URL/api/auth/login" \
+    --data '{"name":"teacher_test","password":"teacher123"}' > "$login_json" || true
+teacher_token=$(jq -r '.data.token // empty' "$login_json")
+teacher_id=$(jq -r '.user_id // empty' "$login_json")
+
+# student login
+curl -s -H 'Content-Type: application/json' -X POST "$BASE_URL/api/auth/login" \
+    --data '{"name":"student_test","password":"student123"}' > "$login_json" || true
+student_token=$(jq -r '.data.token // empty' "$login_json")
+student_id=$(jq -r '.user_id // empty' "$login_json")
+
+echo "teacher_id=$teacher_id student_id=$student_id"
+
+# 创建一个进行中的实验和一个已过期的实验（通过 teacher 接口）
+create_exp() {
+    local title="$1"; local deadline="$2"; local out_var="$3"
+    local payload
+    payload=$(cat <<JSON
+{
+    "title": "$title",
+    "description": "seeded by run-newman",
+    "permission": 1,
+    "deadline": "$deadline",
+    "student_ids": ["$student_id"],
+    "questions": [
+        {"type":"choice","content":"2+2=?","options":["A","B","C","D"],"correct_answer":"A","score":5}
+    ]
+}
+JSON
+)
+    res=$(mktemp)
+    http_code=$(curl -s -o "$res" -w "%{http_code}" -X POST "$BASE_URL/api/teacher/experiments" \
+        -H "Content-Type: application/json" -H "Authorization: $teacher_token" \
+        --data "$payload" || true)
+    if [[ "$http_code" == "201" || "$http_code" == "200" ]]; then
+        exp_id=$(jq -r '.data.experiment_id // empty' "$res")
+        if [[ -n "$exp_id" ]]; then eval "$out_var=$exp_id"; fi
+    fi
+}
+
+now_plus_1h=$(date -u -v+1H +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d '+1 hour' +"%Y-%m-%dT%H:%M:%SZ")
+now_minus_1h=$(date -u -v-1H +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d '-1 hour' +"%Y-%m-%dT%H:%M:%SZ")
+ACTIVE_EXP_ID=""; EXPIRED_EXP_ID=""
+create_exp "E2E Active Experiment" "$now_plus_1h" ACTIVE_EXP_ID
+create_exp "E2E Expired Experiment" "$now_minus_1h" EXPIRED_EXP_ID
+
+echo "Seeded experiments: active=$ACTIVE_EXP_ID expired=$EXPIRED_EXP_ID"
+
+# 上传一个示例文件到活动实验，供学生列表示例和下载
+if [[ -n "$ACTIVE_EXP_ID" ]]; then
+    sample_file=$(mktemp)
+    echo "hello smartfox" > "$sample_file"
+    up_code=$(curl -s -o /tmp/upload.json -w "%{http_code}" -X POST \
+        -H "Authorization: $teacher_token" \
+        -F "file=@$sample_file;filename=sample.txt" \
+        "$BASE_URL/api/teacher/experiments/$ACTIVE_EXP_ID/uploadFile" || true)
+    echo "upload status: $up_code"
+fi
+
+# 将关键变量注入环境，供学生集合使用
+if [[ -f "$ENV_FILE" ]]; then
+    jq --arg sid "$student_id" --arg aexp "$ACTIVE_EXP_ID" --arg eexp "$EXPIRED_EXP_ID" \
+         --arg st "$student_token" --arg tt "$teacher_token" '
+        .values = (.values // []) |
+        (.values |= (
+            map(if .key=="studentId" then .value=$sid else . end)
+            | map(if .key=="expiredExperimentId" then .value=$eexp else . end)
+            | map(if .key=="experimentId" then .value=$aexp else . end)
+            | map(if .key=="studentToken" then .value=$st else . end)
+            | map(if .key=="teacherToken" then .value=$tt else . end)
+        )) |
+        (.values += [
+            (if any(.values[]; .key=="studentId") then empty else {key:"studentId", value:$sid, enabled:true} end),
+            (if any(.values[]; .key=="experimentId") then empty else {key:"experimentId", value:$aexp, enabled:true} end),
+            (if any(.values[]; .key=="expiredExperimentId") then empty else {key:"expiredExperimentId", value:$eexp, enabled:true} end),
+            (if any(.values[]; .key=="studentToken") then empty else {key:"studentToken", value:$st, enabled:true} end),
+            (if any(.values[]; .key=="teacherToken") then empty else {key:"teacherToken", value:$tt, enabled:true} end)
+        ])
+    ' "$ENV_FILE" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "$ENV_FILE"
+fi
+
+# 使用固定账号登录，获取 teacher/student Token（以覆盖 base 的随机用户），并种子化实验与文件
+echo "[login] Logging in as teacher_test and student_test"
+teacher_login_json=$(mktemp)
+student_login_json=$(mktemp)
+curl -s -H 'Content-Type: application/json' -X POST "$BASE_URL/api/auth/login" \
+    --data '{"name":"teacher_test","password":"teacher123"}' > "$teacher_login_json" || true
+curl -s -H 'Content-Type: application/json' -X POST "$BASE_URL/api/auth/login" \
+    --data '{"name":"student_test","password":"student123"}' > "$student_login_json" || true
+
+teacher_token=$(jq -r '.data.token // empty' "$teacher_login_json" 2>/dev/null || echo "")
+student_token=$(jq -r '.data.token // empty' "$student_login_json" 2>/dev/null || echo "")
+
+if [[ -n "$teacher_token" ]]; then
+    jq --arg t "$teacher_token" '(.values // []) as $v | .values = ($v | map(if .key=="teacherToken" then .value=$t else . end)) | (.values |= (if any(.key=="teacherToken") then . else . + [{key:"teacherToken", value:$t, enabled:true}] end))' "$ENV_FILE" > "$ENV_FILE.tmp" && mv "$ENV_FILE.tmp" "$ENV_FILE"
+fi
+if [[ -n "$student_token" ]]; then
+    jq --arg t "$student_token" '(.values // []) as $v | .values = ($v | map(if .key=="studentToken" then .value=$t else . end)) | (.values |= (if any(.key=="studentToken") then . else . + [{key:"studentToken", value:$t, enabled:true}] end))' "$ENV_FILE" > "$ENV_FILE.tmp" && mv "$ENV_FILE.tmp" "$ENV_FILE"
+fi
+
+# 获取学生ID，便于创建实验绑定
+student_id=$(curl -s -H "Authorization: $teacher_token" "$BASE_URL/api/teacher/students?page=1&limit=1" | jq -r '.data[0].user_id // empty')
+if [[ -z "$student_id" ]]; then
+    # 退化：查询简易学生列表
+    student_id=$(curl -s -H "Authorization: $teacher_token" "$BASE_URL/api/student_list" | jq -r '.student_ids[0] // empty')
+fi
+
+echo "[seed] Creating sample experiments via teacher API"
+now_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+future_iso=$(date -u -v+30M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "+30 minutes" +"%Y-%m-%dT%H:%M:%SZ")
+past_iso=$(date -u -v-30M +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || date -u -d "-30 minutes" +"%Y-%m-%dT%H:%M:%SZ")
+
+create_payload() {
+cat <<JSON
+{
+    "title": "$1",
+    "description": "$2",
+    "permission": 1,
+    "deadline": "$3",
+    "student_ids": ["${student_id:-1}"],
+    "questions": [
+        {"type":"choice","content":"2+2?","options":["A","B","C","D"],"correct_answer":"A","score":5}
+    ]
+}
+JSON
+}
+
+active_json=$(mktemp); expired_json=$(mktemp)
+curl -s -H "Authorization: $teacher_token" -H 'Content-Type: application/json' \
+    -X POST "$BASE_URL/api/teacher/experiments" --data "$(create_payload 'Active Exp' 'Auto seeded active experiment' "$future_iso")" > "$active_json" || true
+curl -s -H "Authorization: $teacher_token" -H 'Content-Type: application/json' \
+    -X POST "$BASE_URL/api/teacher/experiments" --data "$(create_payload 'Expired Exp' 'Auto seeded expired experiment' "$past_iso")" > "$expired_json" || true
+
+active_id=$(jq -r '.data.experiment_id // empty' "$active_json" 2>/dev/null || echo "")
+expired_id=$(jq -r '.data.experiment_id // empty' "$expired_json" 2>/dev/null || echo "")
+
+if [[ -n "$active_id" ]]; then
+    jq --arg id "$active_id" '(.values // []) as $v | .values = ($v | map(if .key=="experimentId" then .value=$id else . end)) | (.values |= (if any(.key=="experimentId") then . else . + [{key:"experimentId", value:$id, enabled:true}] end))' "$ENV_FILE" > "$ENV_FILE.tmp" && mv "$ENV_FILE.tmp" "$ENV_FILE"
+fi
+if [[ -n "$expired_id" ]]; then
+    jq --arg id "$expired_id" '(.values // []) as $v | .values = ($v | map(if .key=="expiredExperimentId" then .value=$id else . end)) | (.values |= (if any(.key=="expiredExperimentId") then . else . + [{key:"expiredExperimentId", value:$id, enabled:true}] end))' "$ENV_FILE" > "$ENV_FILE.tmp" && mv "$ENV_FILE.tmp" "$ENV_FILE"
+fi
+
+# 上传一个示例文件到活动实验
+if [[ -n "$active_id" ]]; then
+    tmpfile=$(mktemp)
+    echo "hello" > "$tmpfile"
+    up_json=$(mktemp)
+    curl -s -H "Authorization: $teacher_token" -F "file=@$tmpfile;filename=readme.txt" \
+        -X POST "$BASE_URL/api/teacher/experiments/$active_id/uploadFile" > "$up_json" || true
+    # 设定文件名到环境
+    jq --arg fn "readme.txt" '(.values // []) as $v | .values = ($v | map(if .key=="filename" then .value=$fn else . end)) | (.values |= (if any(.key=="filename") then . else . + [{key:"filename", value:$fn, enabled:true}] end))' "$ENV_FILE" > "$ENV_FILE.tmp" && mv "$ENV_FILE.tmp" "$ENV_FILE"
+fi
+
 echo ""
 echo "========================================="
 echo "🧪 运行学生测试集合 (SmartFox-Students-Tests.postman_collection.json)"
