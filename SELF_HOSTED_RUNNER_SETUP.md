@@ -110,7 +110,7 @@ sudo snap install yq
 
 ### 1. 在 GitHub 仓库中添加 Runner
 
-1. 进入你的 GitHub 仓库
+1. 进入 GitHub 仓库
 2. 点击 "Settings" → "Actions" → "Runners"
 3. 点击 "New self-hosted runner"
 4. 选择你的操作系统（macOS/Linux）
